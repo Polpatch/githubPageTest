@@ -1,0 +1,55 @@
+{
+  "scheda": {
+    "nome": "Scheda Forza – Ipertrofia",
+    "autore": "Coach Estremo",
+    "versione": "1.0",
+    "giorni": [
+      {
+        "id": "lun",
+        "nome": "Lunedì – Push (Petto / Spalle / Tricipiti)",
+        "esercizi": [
+          { "id": "panca_piana", "nome": "Panca Piana", "serie": 4, "reps": "6-8", "note": "Presa larga, scendi al petto" },
+          { "id": "panca_inclinata", "nome": "Panca Inclinata", "serie": 3, "reps": "8-10", "note": "30°, manubri o bilanciere" },
+          { "id": "lento_avanti", "nome": "Lento Avanti", "serie": 4, "reps": "6-8", "note": "Seduto, bilanciere o manubri" },
+          { "id": "alzate_laterali", "nome": "Alzate Laterali", "serie": 3, "reps": "12-15", "note": "Controllo nella fase negativa" },
+          { "id": "french_press", "nome": "French Press", "serie": 3, "reps": "10-12", "note": "EZ bar, gomiti fermi" },
+          { "id": "tricipiti_cavi", "nome": "Tricipiti ai Cavi", "serie": 3, "reps": "12-15", "note": "Supina o prona" }
+        ]
+      },
+      {
+        "id": "mar",
+        "nome": "Martedì – Pull (Schiena / Bicipiti)",
+        "esercizi": [
+          { "id": "stacco", "nome": "Stacco da Terra", "serie": 4, "reps": "4-6", "note": "Schiena neutra, piedi a larghezza fianchi" },
+          { "id": "trazioni", "nome": "Trazioni", "serie": 4, "reps": "6-10", "note": "Presa pronata, petto verso la sbarra" },
+          { "id": "rematore", "nome": "Rematore con Bilanciere", "serie": 3, "reps": "8-10", "note": "Busto a 45°, tira verso l'ombelico" },
+          { "id": "lat_machine", "nome": "Lat Machine", "serie": 3, "reps": "10-12", "note": "Presa larga, scendi finché le braccia sono parallele" },
+          { "id": "curl_bilanciere", "nome": "Curl con Bilanciere", "serie": 3, "reps": "8-10", "note": "No slancio dei gomiti" },
+          { "id": "curl_manubri", "nome": "Curl Alternato Manubri", "serie": 3, "reps": "10-12", "note": "Supinazione completa in cima" }
+        ]
+      },
+      {
+        "id": "gio",
+        "nome": "Giovedì – Gambe",
+        "esercizi": [
+          { "id": "squat", "nome": "Squat", "serie": 4, "reps": "6-8", "note": "Scendi sotto il parallelo, ginocchia sui piedi" },
+          { "id": "leg_press", "nome": "Leg Press", "serie": 3, "reps": "10-12", "note": "Piedi a larghezza spalle, non bloccare le ginocchia" },
+          { "id": "affondi", "nome": "Affondi Camminati", "serie": 3, "reps": "12 per lato", "note": "Bilanciere o manubri" },
+          { "id": "leg_curl", "nome": "Leg Curl", "serie": 4, "reps": "10-12", "note": "Isometrico 1s in cima" },
+          { "id": "calf_raises", "nome": "Calf Raises", "serie": 4, "reps": "15-20", "note": "Range completo, pausa in basso" }
+        ]
+      },
+      {
+        "id": "ven",
+        "nome": "Venerdì – Full Body / Core",
+        "esercizi": [
+          { "id": "clean_press", "nome": "Clean & Press", "serie": 3, "reps": "5", "note": "Potenza, tecnica prima del peso" },
+          { "id": "dip", "nome": "Dip alle Parallele", "serie": 3, "reps": "8-12", "note": "Corpo verticale per petto, inclinato per tricipiti" },
+          { "id": "face_pull", "nome": "Face Pull", "serie": 3, "reps": "15", "note": "Cavi alti, elbows a 90°" },
+          { "id": "plank", "nome": "Plank", "serie": 3, "reps": "45s", "note": "Addome contratto, non inarcare la schiena" },
+          { "id": "russian_twist", "nome": "Russian Twist", "serie": 3, "reps": "20", "note": "Con o senza peso" }
+        ]
+      }
+    ]
+  }
+}

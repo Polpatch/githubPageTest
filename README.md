@@ -1,2 +1,3 @@
-# githubPageTest
-Todo List web app — esempio di GitHub Pages con Web Storage
+# Piattaforma Allenamento Estremo
+
+Web app statica per GitHub Pages che carica una scheda da `scheda.json` e salva i progressi giornalieri in `localStorage`.
