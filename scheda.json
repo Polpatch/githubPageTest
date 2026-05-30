@@ -1,55 +1,39 @@
-{
-  "scheda": {
-    "nome": "Scheda Forza – Ipertrofia",
-    "autore": "Coach Estremo",
-    "versione": "1.0",
+[
+  {
+    "id": "push-pull-legs-maggio2026",
+    "nome": "Push Pull Legs — Maggio 2026",
+    "descrizione": "Scheda 3 giorni con split push/pull/legs. Ripetere 2 volte a settimana.",
     "giorni": [
       {
-        "id": "lun",
-        "nome": "Lunedì – Push (Petto / Spalle / Tricipiti)",
+        "nome": "Giorno A — Push",
         "esercizi": [
-          { "id": "panca_piana", "nome": "Panca Piana", "serie": 4, "reps": "6-8", "note": "Presa larga, scendi al petto" },
-          { "id": "panca_inclinata", "nome": "Panca Inclinata", "serie": 3, "reps": "8-10", "note": "30°, manubri o bilanciere" },
-          { "id": "lento_avanti", "nome": "Lento Avanti", "serie": 4, "reps": "6-8", "note": "Seduto, bilanciere o manubri" },
-          { "id": "alzate_laterali", "nome": "Alzate Laterali", "serie": 3, "reps": "12-15", "note": "Controllo nella fase negativa" },
-          { "id": "french_press", "nome": "French Press", "serie": 3, "reps": "10-12", "note": "EZ bar, gomiti fermi" },
-          { "id": "tricipiti_cavi", "nome": "Tricipiti ai Cavi", "serie": 3, "reps": "12-15", "note": "Supina o prona" }
+          { "id": "panca-piana",        "nome": "Panca Piana",           "serie": 4, "reps": "6-8",   "recupero": 180, "note": "Scapole addutte, piedi a terra" },
+          { "id": "shoulder-press",     "nome": "Shoulder Press",       "serie": 3, "reps": "8-10",  "recupero": 120, "note": "Non iperestendere la schiena" },
+          { "id": "cavi-croci",         "nome": "Cavi Croci",            "serie": 3, "reps": "12-15", "recupero": 90,  "note": "Contrazione al centro" },
+          { "id": "tricipiti-pushdown", "nome": "Tricipiti Pushdown",    "serie": 3, "reps": "10-12", "recupero": 90,  "note": "Gomiti fermi ai fianchi" },
+          { "id": "alzate-laterali",   "nome": "Alzate Laterali",       "serie": 4, "reps": "15-20", "recupero": 60,  "note": "Peso leggero, controllo del movimento" }
         ]
       },
       {
-        "id": "mar",
-        "nome": "Martedì – Pull (Schiena / Bicipiti)",
+        "nome": "Giorno B — Pull",
         "esercizi": [
-          { "id": "stacco", "nome": "Stacco da Terra", "serie": 4, "reps": "4-6", "note": "Schiena neutra, piedi a larghezza fianchi" },
-          { "id": "trazioni", "nome": "Trazioni", "serie": 4, "reps": "6-10", "note": "Presa pronata, petto verso la sbarra" },
-          { "id": "rematore", "nome": "Rematore con Bilanciere", "serie": 3, "reps": "8-10", "note": "Busto a 45°, tira verso l'ombelico" },
-          { "id": "lat_machine", "nome": "Lat Machine", "serie": 3, "reps": "10-12", "note": "Presa larga, scendi finché le braccia sono parallele" },
-          { "id": "curl_bilanciere", "nome": "Curl con Bilanciere", "serie": 3, "reps": "8-10", "note": "No slancio dei gomiti" },
-          { "id": "curl_manubri", "nome": "Curl Alternato Manubri", "serie": 3, "reps": "10-12", "note": "Supinazione completa in cima" }
+          { "id": "trazioni",           "nome": "Trazioni",              "serie": 4, "reps": "max",    "recupero": 180, "note": "Presa prona, scapole abbassate" },
+          { "id": "rematore-bilanciere","nome": "Rematore con Bilanciere","serie": 4, "reps": "6-8",   "recupero": 180, "note": "Schiena parallela al suolo" },
+          { "id": "face-pull",          "nome": "Face Pull",              "serie": 3, "reps": "15-20", "recupero": 60,  "note": "Cavi alti, tirare verso naso" },
+          { "id": "curl-bilanciere",    "nome": "Curl Bilanciere",        "serie": 3, "reps": "8-10",  "recupero": 90,  "note": "No slancio" },
+          { "id": "curl-martello",      "nome": "Curl Martello",          "serie": 3, "reps": "10-12", "recupero": 90,  "note": "Alternato" }
         ]
       },
       {
-        "id": "gio",
-        "nome": "Giovedì – Gambe",
+        "nome": "Giorno C — Legs",
         "esercizi": [
-          { "id": "squat", "nome": "Squat", "serie": 4, "reps": "6-8", "note": "Scendi sotto il parallelo, ginocchia sui piedi" },
-          { "id": "leg_press", "nome": "Leg Press", "serie": 3, "reps": "10-12", "note": "Piedi a larghezza spalle, non bloccare le ginocchia" },
-          { "id": "affondi", "nome": "Affondi Camminati", "serie": 3, "reps": "12 per lato", "note": "Bilanciere o manubri" },
-          { "id": "leg_curl", "nome": "Leg Curl", "serie": 4, "reps": "10-12", "note": "Isometrico 1s in cima" },
-          { "id": "calf_raises", "nome": "Calf Raises", "serie": 4, "reps": "15-20", "note": "Range completo, pausa in basso" }
-        ]
-      },
-      {
-        "id": "ven",
-        "nome": "Venerdì – Full Body / Core",
-        "esercizi": [
-          { "id": "clean_press", "nome": "Clean & Press", "serie": 3, "reps": "5", "note": "Potenza, tecnica prima del peso" },
-          { "id": "dip", "nome": "Dip alle Parallele", "serie": 3, "reps": "8-12", "note": "Corpo verticale per petto, inclinato per tricipiti" },
-          { "id": "face_pull", "nome": "Face Pull", "serie": 3, "reps": "15", "note": "Cavi alti, elbows a 90°" },
-          { "id": "plank", "nome": "Plank", "serie": 3, "reps": "45s", "note": "Addome contratto, non inarcare la schiena" },
-          { "id": "russian_twist", "nome": "Russian Twist", "serie": 3, "reps": "20", "note": "Con o senza peso" }
+          { "id": "squat",              "nome": "Squat",                 "serie": 4, "reps": "6-8",   "recupero": 240, "note": "Scendere sotto il parallelo" },
+          { "id": "romanian-deadlift", "nome": "Romanian Deadlift",      "serie": 3, "reps": "8-10",  "recupero": 180, "note": "Tirare coi femorali, non con la schiena" },
+          { "id": "leg-press",         "nome": "Leg Press",              "serie": 3, "reps": "10-12", "recupero": 120, "note": "Piedi a larghezza spalle" },
+          { "id": "leg-curl",          "nome": "Leg Curl",               "serie": 3, "reps": "12-15", "recupero": 90,  "note": "Contrazione completa" },
+          { "id": "calf-raise",        "nome": "Calf Raise",             "serie": 4, "reps": "15-20", "recupero": 60,  "note": "Range completo di movimento" }
         ]
       }
     ]
   }
-}
+]

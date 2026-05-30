@@ -1,218 +1,129 @@
 # 🏋️ Piattaforma Allenamento Estremo
 
-Web app statica per **GitHub Pages** — zero backend, zero dipendenze esterne.
-Le schede di allenamento sono file JSON nel repository; i progressi, la cronologia e i dati inseriti vengono salvati interamente nel `localStorage` del browser.
+Visualizzatore di schede di allenamento con tracciamento dei pesi, timer di recupero e storico sessioni. Progetto statico deployato via **GitHub Pages**.
+
+## 🔗 Link
+
+> Attivare GitHub Pages da **Settings → Pages → Branch: main / root**
 
 ---
 
-## 📱 Come funziona l'app
+## ⚙️ Come funziona l'app
 
-### 1 · Selezione scheda
-Nella sidebar sinistra vengono elencate tutte le schede presenti in `schede/catalog.json` (o, in assenza del file, un catalogo incorporato nel codice). È possibile filtrare per nome, mese e anno.
+### 1. Caricamento scheda
+All'apertura, la pagina fa un `fetch` del file `scheda.json` nella root del repository. Se il file è assente o malformato, viene mostrato un messaggio di errore.
 
-### 2 · Visualizzazione giorno
-Selezionando una scheda appaiono i tab dei giorni (Push, Pull, Legs, ecc.).
+### 2. Selezione scheda e giorno
+- Il menu a tendina in cima mostra tutte le schede definite nel JSON (un array).
+- I tab colorati sotto permettono di passare da un giorno all'altro (es. Giorno A, Giorno B…).
+- Cambiare scheda o giorno **azzera la sessione corrente** senza toccare i dati salvati.
+
+### 3. Tabella esercizi
 Ogni esercizio mostra:
+- **Nome** + note tecniche in grigio.
+- **Pallini serie** (dot): cliccando un pallino si segna quella serie come completata (arancio). Ri-cliccando l'ultimo dot completato si de-segna.
+- **Campo peso** (kg): valore numerico modificabile, precompilato con l'ultimo peso salvato per quell'esercizio.
+- **Badge recupero**: tempo di recupero previsto dalla scheda.
+- **Icona orologio**: apre il drawer storico dell'esercizio.
 
-| Elemento | Descrizione |
-|---|---|
-| **Badge serie** | Numero di serie previste dalla scheda JSON |
-| **Badge reps** | Ripetizioni previste dalla scheda JSON |
-| **Badge recupero** | Tempo di riposo in minuti:secondi letto dal campo `recupero` del JSON |
-| **Pallini serie** | Uno per ogni serie — clic sul prossimo per segnarlo ✓, clic sull'ultimo segnato per annullarlo |
-| **Campo Peso** | Peso usato (kg), salvato in localStorage |
-| **Campo Reps effettive** | Es. `8/8/7/6`, salvato in localStorage |
-| **Campo Note** | Note libere sulla sessione, salvate in localStorage |
-| **Note scheda** | Indicazioni tecniche dall'autore della scheda (campo `note` nel JSON, read-only) |
+### 4. Timer di recupero
+Il timer si avvia **automaticamente** ogni volta che si clicca un pallino serie (tranne l'ultimo che completa l'esercizio).
 
-### 3 · Timer di riposo
-Il pulsante **⏱ Riposo** apre un popup con:
-- Anello SVG animato che conta alla rovescia
-- Tempo base preso dal campo `recupero` dell'esercizio nel JSON (default 90 s)
-- Bottoni **−15 s / +15 s** per regolazione al volo
-- Preset rapidi: 1 min, 1:30, 2 min, 3 min
-- Avvio automatico all'apertura
-- Colore giallo sotto i 30 s, rosso sotto i 10 s, con **beep audio** alla scadenza
+- Si apre come overlay scuro centrale con countdown grande.
+- **Barra di progresso** che si svuota con il tempo.
+- A 10 secondi dalla fine il display diventa giallo (warning).
+- Allo scadere suona tre brevi bip (Web Audio API) e si chiude da solo dopo 1.8 s.
+- Pulsanti: **Salta** (chiude subito), **Pausa/Riprendi**, **+30s** (aggiunge 30 secondi).
+- Cliccando fuori dall'overlay si chiude senza aspettare.
 
-### 4 · Cronologia esercizio (inline)
-In fondo a ogni scheda esercizio è presente un **drawer collassabile** che mostra la tabella storica dell'esercizio (data, peso, reps effettive, note) filtrata per scheda e giorno.
-Si apre anche cliccando l'icona 🕐 in alto a destra sull'esercizio.
+### 5. Completamento esercizio
+Quando si segnano **tutte le serie** di un esercizio, appare un toast `✅ Esercizio completato!` invece di avviare il timer.
 
-### 5 · Salvataggio sessione
-Il pulsante **💾 Salva sessione** nel toolbar registra uno snapshot completo del giorno corrente (pesi, reps, note di tutti gli esercizi) nella cronologia globale, con data e ora.
+### 6. Salvataggio sessione
+Ogni modifica (peso o serie) fa comparire una **barra fissa in basso** con due azioni:
+- **Salva sessione**: scrive su `localStorage` l'ultimo peso inserito per ogni esercizio e aggiunge una voce allo storico (data, peso, serie completate).
+- **Scarta**: annulla le modifiche e ricarica i valori salvati in precedenza.
 
-### 6 · Cronologia sessioni
-In fondo alla pagina compare automaticamente la sezione **📋 Cronologia sessioni** con le ultime 30 sessioni salvate, ordinate dalla più recente, con scheda, giorno e riepilogo pesi/reps.
-
-### 7 · Reset e export
-- **Reset** → cancella i dati correnti del giorno selezionato (chiede conferma)
-- **Esporta** → scarica un file `allenamento-export.json` con tutti i progressi e la cronologia
+### 7. Storico per esercizio
+Il drawer laterale destro mostra tutte le sessioni passate per quell'esercizio, dalla più recente alla più vecchia, con data, peso e numero di serie.
 
 ---
 
-## 📂 Struttura repository
+## 📁 Struttura repository
 
 ```
-/
-├── index.html                     ← App principale (GitHub Pages entry point)
-├── README.md
-└── schede/
-    ├── catalog.json               ← Indice di tutte le schede
-    ├── ATHLON_01_05-2026.json
-    ├── ATHLON_Hypertrophy_02_05-2026.json
-    └── ...                        ← altre schede
+GitHubPageTest/
+├── index.html      ← App web (unico file HTML)
+├── scheda.json     ← Schede di allenamento
+└── README.md
 ```
 
 ---
 
-## 🗂 Convenzione nomi file schede
+## 📋 Come costruire la scheda (`scheda.json`)
 
-```
-schede/NOME_NUMERO_mese-anno.json
-```
-
-**Esempi validi:**
-```
-schede/ATHLON_01_05-2026.json
-schede/ForzeBase_03_01-2027.json
-schede/PushPullLegs_02_09-2026.json
-```
-
-> Il nome deve corrispondere esattamente a quello dichiarato in `catalog.json`.
-
----
-
-## 📋 Struttura `catalog.json`
-
-Il catalogo è l'indice che l'app legge all'avvio per popolare la sidebar.
+Il file è un **array JSON di schede**. Ogni scheda ha questa struttura:
 
 ```json
 [
   {
-    "file":    "schede/ATHLON_01_05-2026.json",
-    "nome":    "ATHLON",
-    "numero":  "01",
-    "mese":    "05",
-    "anno":    "2026",
-    "versione": "2.9"
-  },
-  {
-    "file":    "schede/ATHLON_Hypertrophy_02_05-2026.json",
-    "nome":    "ATHLON_Hypertrophy",
-    "numero":  "02",
-    "mese":    "05",
-    "anno":    "2026",
-    "versione": "1.0"
+    "id": "nome-scheda-unico",
+    "nome": "Nome visualizzato nel menu",
+    "descrizione": "Descrizione opzionale",
+    "giorni": [
+      {
+        "nome": "Giorno A — Push",
+        "esercizi": [
+          {
+            "id": "id-unico-esercizio",
+            "nome": "Nome esercizio",
+            "serie": 4,
+            "reps": "6-8",
+            "recupero": 180,
+            "note": "Indicazioni tecniche"
+          }
+        ]
+      }
+    ]
   }
 ]
 ```
 
----
-
-## 🏗 Struttura JSON di una scheda
-
-Ogni scheda è un file JSON con la seguente struttura. **Tutti i campi contrassegnati con \* sono obbligatori.**
-
-```json
-{
-  "scheda": {
-    "nome":     "ATHLON",          // * nome visualizzato nell'app
-    "numero":   "01",              // * numero progressivo (stringa a 2 cifre)
-    "mese":     "05",              // * mese (01–12, stringa a 2 cifre)
-    "anno":     "2026",            // * anno (YYYY)
-    "autore":   "Coach Estremo",   //   opzionale
-    "versione": "2.9",             //   opzionale, mostrata nell'header
-
-    "giorni": [
-      {
-        "id":   "g1",              // * identificatore unico del giorno (usato come chiave in localStorage)
-        "nome": "Push",            // * nome visualizzato nel tab
-
-        "esercizi": [
-          {
-            "id":        "chest_press_mac",             // * ID univoco nell'intera scheda
-            "nome":      "Chest Press alla macchina",   // * nome visualizzato
-            "serie":     4,                             // * numero intero → genera 4 pallini tracker
-            "reps":      "6-8",                         // * stringa libera (es. "6-8", "12", "5-10 min")
-            "recupero":  90,                            //   secondi di riposo (intero); default 90 se assente
-            "note":      "Machine Chest Press – controllo fase eccentrica"  // * indicazioni tecniche
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Campi esercizio — dettaglio
+### Campi esercizio
 
 | Campo | Tipo | Obbligatorio | Descrizione |
 |---|---|---|---|
-| `id` | stringa | ✅ | Identificatore univoco. Usato come chiave per localStorage e cronologia. Non cambiare dopo l'uso! |
-| `nome` | stringa | ✅ | Nome visualizzato nella card esercizio |
-| `serie` | intero | ✅ | Numero di serie → genera i pallini cliccabili nel tracker |
-| `reps` | stringa | ✅ | Range o valore libero: `"6-8"`, `"12"`, `"8-10 per gamba"`, `"5-10 min"` |
-| `recupero` | intero | ❌ | Secondi di riposo tra le serie. Se assente viene usato il default di **90 s**. Usare `60`, `90`, `120`, `180` |
-| `note` | stringa | ✅ | Indicazioni tecniche, suggerimenti di esecuzione. Mostrate in giallo sotto i campi input |
+| `id` | stringa | ✅ | Identificatore univoco — **non cambiare mai** dopo aver iniziato ad usarlo, è la chiave del localStorage |
+| `nome` | stringa | ✅ | Nome visualizzato nella tabella |
+| `serie` | intero | ✅ | Numero di serie — determina quanti pallini vengono mostrati |
+| `reps` | stringa | ✅ | Libero: `"6-8"`, `"10-12"`, `"max"`, `"5 min"` |
+| `recupero` | intero | ❌ | Secondi di recupero tra serie. Default: **90 secondi** se omesso |
+| `note` | stringa | ❌ | Indicazioni tecniche mostrate in grigio sotto al nome |
 
-> ⚠️ **Attenzione:** l'`id` dell'esercizio è la chiave con cui vengono salvati peso, reps e note in localStorage e nella cronologia. Se cambi l'`id` dopo aver già registrato sessioni, quei dati storici non saranno più visibili in cronologia.
+### Regole importanti
 
----
+- L'`id` della scheda e l'`id` di ogni esercizio sono usati come **chiavi nel localStorage**: non modificarli una volta che hai iniziato ad usare la scheda, altrimenti perdi lo storico.
+- Puoi avere **più schede** nello stesso file, tutte accessibili dal menu a tendina.
+- Il campo `reps` è una stringa libera: puoi scrivere `"6-8"`, `"max"`, `"AMRAP"`, `"20 min steady state"` — viene mostrato così com'è.
+- Il `recupero` è in **secondi** (180 = 3 minuti).
 
-## ✏️ Esempio completo — scheda minima funzionante
+### Esempio scheda minima funzionante
 
 ```json
-{
-  "scheda": {
-    "nome": "ForzeBase",
-    "numero": "01",
-    "mese": "06",
-    "anno": "2026",
-    "versione": "1.0",
-
+[
+  {
+    "id": "full-body-a",
+    "nome": "Full Body A",
     "giorni": [
       {
-        "id": "full_a",
-        "nome": "Full Body A",
+        "nome": "Giorno 1",
         "esercizi": [
-          {
-            "id":       "squat_bar",
-            "nome":     "Squat con bilanciere",
-            "serie":    4,
-            "reps":     "5",
-            "recupero": 180,
-            "note":     "Sotto il parallelo, schiena neutra"
-          },
-          {
-            "id":       "panca_bar",
-            "nome":     "Panca piana con bilanciere",
-            "serie":    4,
-            "reps":     "5",
-            "recupero": 180,
-            "note":     "Scapole strette, piedi piatti a terra"
-          },
-          {
-            "id":       "stacco_bar",
-            "nome":     "Stacco da terra",
-            "serie":    3,
-            "reps":     "5",
-            "recupero": 240,
-            "note":     "Barre sui metatarsi, schiena rigida"
-          }
+          { "id": "squat",      "nome": "Squat",      "serie": 3, "reps": "8-10", "recupero": 120 },
+          { "id": "panca",      "nome": "Panca Piana", "serie": 3, "reps": "8-10", "recupero": 120 },
+          { "id": "trazioni",   "nome": "Trazioni",   "serie": 3, "reps": "max",  "recupero": 90  }
         ]
       }
     ]
   }
-}
+]
 ```
-
----
-
-## 🚀 Attivare GitHub Pages
-
-1. Vai in **Settings → Pages**
-2. **Source:** `Deploy from a branch`
-3. **Branch:** `main` / `/ (root)`
-4. Salva — dopo pochi secondi la pagina sarà disponibile su `https://<username>.github.io/<repo>/`
-
-> L'app funziona interamente lato client: nessun server, nessuna build. Basta aprire `index.html`.
