@@ -1,7 +1,4 @@
 [
-  { "file": "schede/ForzeBase_01_01-2026.json",           "nome": "ForzeBase",         "numero": "01", "mese": "01", "anno": "2026" },
-  { "file": "schede/ForzeBase_02_02-2026.json",           "nome": "ForzeBase",         "numero": "02", "mese": "02", "anno": "2026" },
-  { "file": "schede/IpertrofiaIntensa_01_03-2026.json",   "nome": "IpertrofiaIntensa", "numero": "01", "mese": "03", "anno": "2026" },
-  { "file": "schede/IpertrofiaIntensa_02_04-2026.json",   "nome": "IpertrofiaIntensa", "numero": "02", "mese": "04", "anno": "2026" },
-  { "file": "schede/ATHLON_01_05-2026.json",              "nome": "ATHLON",            "numero": "01", "mese": "05", "anno": "2026" }
+  { "file": "schede/ATHLON_01_05-2026.json",             "nome": "ATHLON",            "numero": "01", "mese": "05", "anno": "2026" },
+  { "file": "schede/ATHLON_Hypertrophy_02_05-2026.json",  "nome": "ATHLON_Hypertrophy","numero": "02", "mese": "05", "anno": "2026" }
 ]
