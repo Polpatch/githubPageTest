@@ -2,51 +2,7 @@
 
 Web app statica hostata su **GitHub Pages** per gestire e tracciare le schede di allenamento in palestra, giorno per giorno.
 
-> URL: `https://polpatch.github.io/GitHubPageTest/`
-
----
-
-## Come funziona l'app
-
-### 1. Schermata di selezione scheda
-
-All'apertura l'app legge `scheda.json` dalla stessa cartella del repository e mostra una **griglia di card**, una per ogni scheda presente nel file. Ogni card mostra nome, categoria, descrizione e i giorni della settimana associati.
-
-### 2. Selezione del giorno
-
-Cliccando su una scheda si accede alla schermata dei giorni, con **tab cliccabili** (Lunedì, Martedì, ecc.). Toccando un tab si carica direttamente il programma di quel giorno.
-
-### 3. Visualizzazione esercizi
-
-Per ogni giorno vengono mostrate card esercizio con:
-- **Nome**, numero di serie, range di reps e tempo di recupero previsto
-- **Note tecniche** in giallo (consigli di esecuzione)
-- **Pallini serie** cliccabili (uno per ogni serie)
-- **Campi input**: peso usato, reps effettive, note libere
-
-### 4. Pallini serie e timer
-
-Cliccando un pallino si segna la serie come completata (arancione). Automaticamente parte il **timer di recupero** con il countdown in secondi configurato nell'esercizio (default: 90s). Il timer:
-- Mostra un display grande con countdown
-- Ha una barra di progresso
-- Diventa giallo negli ultimi 10 secondi
-- Emette 3 bip audio alla scadenza con Web Audio API
-- Ha tre pulsanti: **+30s**, **Pausa/Riprendi**, **Salta**
-
-L'ultimo pallino (ultima serie) completa l'esercizio senza avviare il timer.
-
-### 5. Salvataggio sessione
-
-Il pulsante **"Salva sessione"** in cima alla schermata allenamento salva tutti i dati inseriti (peso, reps, note) nel **localStorage** del browser, associandoli alla data odierna. I dati sono quindi disponibili offline e persistono tra le sessioni.
-
-### 6. Storico per esercizio
-
-Il pulsante **"Storico"** su ogni card apre un drawer laterale con tutte le sessioni salvate per quell'esercizio in ordine cronologico inverso.
-
-### 7. Navigazione
-
-- **Freccia indietro** su ogni schermata per tornare al livello precedente
-- **"Cambia scheda"** nell'header per tornare alla selezione principale
+> URL GitHub Pages: `https://polpatch.github.io/GitHubPageTest/`
 
 ---
 
@@ -54,79 +10,130 @@ Il pulsante **"Storico"** su ogni card apre un drawer laterale con tutte le sess
 
 ```
 GitHubPageTest/
-├── index.html       ← Web app principale (GitHub Pages entry point)
-├── scheda.json      ← Schede di allenamento (array JSON)
-└── README.md        ← Questa documentazione
+├── index.html          ← Web app (entry point GitHub Pages)
+├── catalog.json        ← Indice delle schede disponibili
+├── README.md
+└── schede/
+    ├── push_a.json     ← Esempio scheda Push
+    ├── pull_a.json     ← Esempio scheda Pull
+    └── legs_a.json     ← Esempio scheda Legs
 ```
+
+Ogni scheda è un **file JSON separato** nella cartella `schede/`. Il file `catalog.json` funge da indice: contiene i riferimenti ai file e le info di anteprima mostrate nella griglia iniziale.
+
+---
+
+## Come funziona l'app
+
+### 1. Selezione scheda
+All'apertura l'app legge `catalog.json` e mostra una griglia di card, una per ogni scheda registrata. Cliccando una card viene caricato il file JSON corrispondente dalla cartella `schede/`.
+
+### 2. Selezione giorno
+Dopo aver caricato una scheda, vengono mostrati i **tab cliccabili** con i giorni di allenamento definiti nel file JSON. Ogni giorno può avere un proprio set di esercizi.
+
+### 3. Esercizi e serie
+Per ogni giorno viene visualizzata la lista degli esercizi, ognuno con:
+- Nome, numero di serie, range reps e tempo di recupero
+- **Note tecniche** in giallo
+- **Pallini serie** cliccabili (uno per ogni serie dell'esercizio)
+- Campi input: **peso usato**, **reps effettive**, **note libere**
+
+### 4. Timer di recupero
+Cliccando un pallino (tranne l'ultimo della serie) parte automaticamente il **timer di recupero** con il countdown in secondi specificato nel JSON (`recupero`, default 90s).
+
+Funzionalità timer:
+- Countdown grande con barra di progresso
+- Display giallo negli ultimi 10 secondi
+- 3 bip audio alla scadenza (Web Audio API)
+- Pulsanti: **+30s**, **Pausa/Riprendi**, **Salta**
+
+### 5. Salvataggio sessione
+Il pulsante **"Salva sessione"** salva i dati di peso, reps e note nel **localStorage** del browser, associati alla data odierna e al giorno di allenamento selezionato.
+
+### 6. Storico per esercizio
+Il pulsante **"Storico"** su ogni esercizio apre un drawer laterale con tutte le sessioni precedenti salvate per quell'esercizio, in ordine cronologico inverso.
+
+### 7. Navigazione
+- Freccia **"Tutte le schede"** → torna alla selezione scheda
+- Freccia **"Torna ai giorni"** → torna alla selezione giorno
+- Pulsante **"Cambia scheda"** nell'header → stesso effetto
 
 ---
 
 ## Attivare GitHub Pages
 
-1. Vai su **Settings → Pages**
+1. **Settings → Pages**
 2. Source: **Deploy from a branch**
 3. Branch: **main** / root
 4. Salva — l'app sarà disponibile su `https://polpatch.github.io/GitHubPageTest/`
 
 ---
 
-## Come costruire la scheda (`scheda.json`)
+## Aggiungere una nuova scheda
 
-Il file è un **array JSON** di oggetti scheda. Puoi inserire quante schede vuoi — verranno tutte mostrate nella griglia iniziale.
+### 1. Crea il file JSON in `schede/`
 
-### Struttura completa
+Nomina il file con un nome descrittivo, es. `schede/fullbody_b.json`.
+
+```json
+{
+  "id": "fullbody_b",
+  "nome": "Full Body B",
+  "categoria": "Full Body",
+  "descrizione": "Allenamento completo — Lunedì, Mercoledì, Venerdì",
+  "giorni": [
+    {
+      "giorno": "Lunedì",
+      "etichetta": "Full Body B — W1",
+      "esercizi": [
+        {
+          "id": "squat",
+          "nome": "Squat",
+          "serie": 4,
+          "reps": "6-8",
+          "recupero": 120,
+          "note": "Bilanciere, scendi a 90° o più in basso"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 2. Aggiungi la voce in `catalog.json`
 
 ```json
 [
+  ...
   {
-    "id": "nome_univoco_mese_anno",
-    "nome": "Nome visualizzato nella card",
-    "categoria": "Push | Pull | Legs | Full Body | ...",
-    "descrizione": "Breve descrizione della scheda",
-    "giorni": [
-      {
-        "giorno": "Lunedì",
-        "etichetta": "Push A",
-        "esercizi": [
-          {
-            "id": "id_univoco_esercizio",
-            "nome": "Nome esercizio",
-            "serie": 4,
-            "reps": "6-8",
-            "recupero": 120,
-            "note": "Indicazione tecnica visualizzata in giallo"
-          }
-        ]
-      }
-    ]
+    "file": "schede/fullbody_b.json",
+    "nome": "Full Body B",
+    "categoria": "Full Body",
+    "descrizione": "Allenamento completo — Lunedì, Mercoledì, Venerdì"
   }
 ]
 ```
 
-### Campi degli esercizi
+---
 
-| Campo | Tipo | Obbligatorio | Note |
+## Schema campi esercizio
+
+| Campo | Tipo | Obbligatorio | Descrizione |
 |---|---|---|---|
-| `id` | stringa | ✅ | Chiave per localStorage — **non cambiare** dopo il primo uso |
-| `nome` | stringa | ✅ | Testo visualizzato nella card esercizio |
-| `serie` | intero | ✅ | Determina il numero di pallini |
+| `id` | stringa | ✅ | Chiave localStorage — **non cambiare** dopo il primo uso |
+| `nome` | stringa | ✅ | Nome visualizzato nella card |
+| `serie` | intero | ✅ | Numero di pallini |
 | `reps` | stringa | ✅ | Testo libero: `"6-8"`, `"12 per gamba"`, `"30s"` |
-| `recupero` | intero | ❌ | Secondi del timer; se assente usa 90s come default |
-| `note` | stringa | ❌ | Indicazione tecnica in giallo sotto il titolo |
-
-### Convenzione nomi `id`
-
-- **Scheda**: `categoria_progressivo_mese-anno` → `push_a_maggio2026`
-- **Esercizio**: `nome_esercizio_in_snake_case` → `panca_piana`, `leg_curl`
-- L'`id` dell'esercizio è la chiave con cui i dati vengono salvati nel localStorage: **non modificarlo** dopo aver iniziato a registrare sessioni, altrimenti lo storico viene perso.
+| `recupero` | intero | ❌ | Secondi timer di recupero; default 90s se omesso |
+| `note` | stringa | ❌ | Indicazione tecnica visualizzata in giallo |
 
 ---
 
 ## Note tecniche
 
 - App **100% statica** — nessun server, nessun backend
-- Dati salvati in **localStorage** del browser (per dispositivo)
-- Lettura scheda via `fetch('./scheda.json')` — funziona correttamente su GitHub Pages
-- Audio timer tramite **Web Audio API** (nessuna dipendenza esterna)
+- Schede caricate via `fetch()` da GitHub Pages (funziona correttamente)
+- Dati salvati in **localStorage** per dispositivo
+- Audio timer via **Web Audio API** (nessuna dipendenza esterna)
 - Font: **Bebas Neue** (display) + **Inter** (body) via Google Fonts
-- Compatibile con dispositivi mobili (touch target 44px, layout responsive)
+- Compatibile mobile (touch target ≥44px, layout responsive)
