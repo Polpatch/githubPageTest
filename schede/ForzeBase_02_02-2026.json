@@ -1,0 +1,43 @@
+{
+  "scheda": {
+    "nome": "ForzeBase",
+    "numero": "02",
+    "mese": "02",
+    "anno": "2026",
+    "autore": "Coach Estremo",
+    "versione": "1.0",
+    "giorni": [
+      {
+        "id": "lun",
+        "nome": "Push",
+        "esercizi": [
+          { "id": "panca_piana",    "nome": "Panca Piana",      "serie": 5, "reps": "5",     "note": "Progressione 5x5 – aumenta 2.5kg a settimana" },
+          { "id": "overhead_press","nome": "Overhead Press",   "serie": 5, "reps": "5",     "note": "Bilanciere, in piedi" },
+          { "id": "dip",           "nome": "Dip alle Parallele","serie": 3, "reps": "8-12",  "note": "Corpo verticale" },
+          { "id": "alzate_lat",    "nome": "Alzate Laterali",   "serie": 4, "reps": "15",    "note": "Leggero, focus sul pump" }
+        ]
+      },
+      {
+        "id": "mer",
+        "nome": "Pull",
+        "esercizi": [
+          { "id": "stacco",          "nome": "Stacco da Terra",     "serie": 5, "reps": "5",     "note": "Progressione 5x5" },
+          { "id": "trazioni_lastex", "nome": "Trazioni con Lastex", "serie": 4, "reps": "6-8",   "note": "Assistite se necessario" },
+          { "id": "lat_machine",     "nome": "Lat Machine",         "serie": 3, "reps": "10-12", "note": "Presa larga" },
+          { "id": "curl_bilanciere", "nome": "Curl Bilanciere",      "serie": 4, "reps": "8",     "note": "Progressione lineare" }
+        ]
+      },
+      {
+        "id": "ven",
+        "nome": "Gambe & Core",
+        "esercizi": [
+          { "id": "squat",         "nome": "Squat",          "serie": 5, "reps": "5",   "note": "Progressione 5x5" },
+          { "id": "leg_press",     "nome": "Leg Press",      "serie": 3, "reps": "12",  "note": "Supplementare allo squat" },
+          { "id": "leg_curl",      "nome": "Leg Curl",       "serie": 3, "reps": "12",  "note": "Curl sdraiato" },
+          { "id": "plank",         "nome": "Plank",          "serie": 4, "reps": "60s", "note": "Addome contratto" },
+          { "id": "russian_twist", "nome": "Russian Twist",  "serie": 3, "reps": "20",  "note": "Con disco o kettlebell" }
+        ]
+      }
+    ]
+  }
+}

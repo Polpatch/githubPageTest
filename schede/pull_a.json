@@ -1,0 +1,30 @@
+{
+  "id": "pull_a",
+  "nome": "Pull A",
+  "categoria": "Pull",
+  "descrizione": "Schiena e bicipiti",
+  "giorni": [
+    {
+      "giorno": "Martedì",
+      "etichetta": "Pull A — Settimana 1",
+      "esercizi": [
+        { "id": "trazioni",          "nome": "Trazioni",              "serie": 4, "reps": "6-10",  "recupero": 120, "note": "Presa prona larga, full ROM" },
+        { "id": "bent_over_row",     "nome": "Bent Over Row",         "serie": 4, "reps": "8-10",  "recupero": 90,  "note": "Bilanciere, busto quasi parallelo al suolo" },
+        { "id": "lat_machine",       "nome": "Lat Machine",           "serie": 3, "reps": "10-12", "recupero": 75,  "note": "Presa supina, porta la sbarra al mento" },
+        { "id": "face_pull",         "nome": "Face Pull",             "serie": 3, "reps": "15-20", "recupero": 45,  "note": "Cavo alto, porta al viso con gomiti alti" },
+        { "id": "curl_bilanciere",   "nome": "Curl Bilanciere",       "serie": 3, "reps": "10-12", "recupero": 60,  "note": "Gomiti fissi ai fianchi, non oscillare" }
+      ]
+    },
+    {
+      "giorno": "Venerdì",
+      "etichetta": "Pull A — Settimana 2",
+      "esercizi": [
+        { "id": "stacco_rumeno",      "nome": "Stacco Rumeno",         "serie": 4, "reps": "8-10",  "recupero": 120, "note": "Manubri, schiena neutra, scendi fino a metà tibia" },
+        { "id": "chest_supp_row",    "nome": "Chest Supported Row",   "serie": 4, "reps": "10-12", "recupero": 90,  "note": "Petto sul panchetto inclinato, tira i gomiti indietro" },
+        { "id": "straight_pulldown", "nome": "Straight Arm Pulldown", "serie": 3, "reps": "12-15", "recupero": 60,  "note": "Braccia tese, focus sul gran dorsale" },
+        { "id": "hammer_curl",       "nome": "Hammer Curl",           "serie": 3, "reps": "12-15", "recupero": 60,  "note": "Presa neutra, alternato" },
+        { "id": "shrug",             "nome": "Shrug",                 "serie": 3, "reps": "12-15", "recupero": 45,  "note": "Manubri, mantieni 2 secondi in alto" }
+      ]
+    }
+  ]
+}

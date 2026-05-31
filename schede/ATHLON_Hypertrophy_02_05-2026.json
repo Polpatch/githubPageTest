@@ -1,0 +1,206 @@
+{
+  "scheda": {
+    "nome": "ATHLON_Hypertrophy",
+    "numero": "02",
+    "mese": "05",
+    "anno": "2026",
+    "autore": "Evidence-Based by Pelland et al. 2025, Remmert et al. 2025, Refalo et al. 2024, ACSM 2026",
+    "versione": "1.0",
+    "note_programma": "3 giorni PPL. Volume: ~10-12 set diretti/muscolo/settimana (Schoenfeld 2017, Remmert 2025 PUOS ≤11 set frazioni/sessione). RIR 1-2 (Refalo 2024: 90-95% degli adattamenti ipertrofici senza andare a cedimento). Rep range: 6-12 compound, 10-20 isolamento (ACSM 2026). Recupero: 2-3 min compound, 60-90 sec isolamento (Frontiers 2024). Enfasi sul range di movimento allungato (Wolf 2025). Durata target per sessione: 75-90 min.",
+    "giorni": [
+      {
+        "id": "g1",
+        "nome": "Push",
+        "esercizi": [
+          {
+            "id": "cardio_warmup",
+            "nome": "Riscaldamento",
+            "serie": 1,
+            "reps": "5-8 min",
+            "note": "Cardio leggero (cyclette o tapis roulant) + mobilità spalle e petto. Non saltare: riduce il rischio infortuni e migliora la qualità del lavoro."
+          },
+          {
+            "id": "chest_press_mac",
+            "nome": "Chest Press alla macchina",
+            "serie": 4,
+            "reps": "8-10",
+            "note": "PRIORITÀ PETTO. Macchina guidata → ideale per la spalla. Fase eccentrica 3s. Scapole addotte per tutto il set. RIR 1-2. Recupero 2 min. [Motivo scientifico: eccentrica lenta massimizza il danno muscolare e la sintesi proteica]"
+          },
+          {
+            "id": "panca_inclinata_mdb",
+            "nome": "Panca Inclinata con Manubri (30°)",
+            "serie": 3,
+            "reps": "10-12",
+            "note": "Angolo 30° → attiva fibre clavicolare e deltoide anteriore. Massima apertura in basso (ROM allungato). RIR 1-2. Recupero 90 sec. [Wolf 2025: il range allungato è la parte più stimolante per l'ipertrofia]"
+          },
+          {
+            "id": "croci_cavi_bassi",
+            "nome": "Croci ai Cavi Bassi",
+            "serie": 3,
+            "reps": "12-15",
+            "note": "Cavi bassi → massima tensione nel punto allungato. Non chiudere completamente (tensione costante). RIR 1-2. Recupero 60 sec. [Isolamento: recupero breve sufficiente perché carico metabolico minore]"
+          },
+          {
+            "id": "lento_avanti_mdb",
+            "nome": "Lento Avanti con Manubri (seduto)",
+            "serie": 3,
+            "reps": "10-12",
+            "note": "SPALLE. Seduto → riduce compensi lombari. Non andare a cedimento sulla spalla. RIR 2. Recupero 90 sec. Alternativa: Landmine Press se la spalla dà fastidio."
+          },
+          {
+            "id": "alzate_lat_cavi",
+            "nome": "Alzate Laterali ai Cavi",
+            "serie": 4,
+            "reps": "15-20",
+            "note": "DELTOIDE MEDIALE. Cavi > manubri per tensione costante. Braccio leggermente avanti, alzare fino all'altezza della spalla max. RIR 1. Recupero 60 sec. [Refalo 2024: muscoli isolamento rispondono bene a rep alte con RIR basso]"
+          },
+          {
+            "id": "rope_pushdown",
+            "nome": "Rope Pushdown al Cavo",
+            "serie": 3,
+            "reps": "12-15",
+            "note": "TRICIPITI. Gomiti fissi ai fianchi. Apri la corda in basso (pronazione) per massimizzare la contrazione. RIR 1. Recupero 60 sec."
+          },
+          {
+            "id": "overhead_tric_ext",
+            "nome": "Estensione Tricipiti Overhead",
+            "serie": 2,
+            "reps": "12-15",
+            "note": "TRICIPITI (capo lungo). Overhead = massimo allungamento del capo lungo. Manubrio singolo o cavo alto. RIR 1-2. Recupero 60 sec. [Wolf 2025: enfasi sul range allungato → maggiore ipertrofia del capo lungo]"
+          }
+        ]
+      },
+      {
+        "id": "g2",
+        "nome": "Pull",
+        "esercizi": [
+          {
+            "id": "cardio_warmup",
+            "nome": "Riscaldamento",
+            "serie": 1,
+            "reps": "5-8 min",
+            "note": "Cardio leggero + mobilità scapole e rotatori della cuffia."
+          },
+          {
+            "id": "lat_pulldown_neutro",
+            "nome": "Lat Machine Presa Neutra/Stretta",
+            "serie": 4,
+            "reps": "8-10",
+            "note": "DORSALI. Primo esercizio compound da fresco. Presa neutra = spalla più sicura. Inizia con scapole che scendono, non solo braccia. RIR 1-2. Recupero 2 min."
+          },
+          {
+            "id": "chest_sup_row",
+            "nome": "Rematore su Panca Inclinata (Chest-Supported)",
+            "serie": 4,
+            "reps": "8-10",
+            "note": "ROMBOIDEI + TRAPEZIO MEDIO. Appoggio al petto elimina i compensi lombari → isolamento pulito della schiena. Presa neutra. Ferma il gomito al fianco, non oltre. RIR 1-2. Recupero 2 min."
+          },
+          {
+            "id": "cable_row_singolo",
+            "nome": "Rematore Singolo al Cavo",
+            "serie": 3,
+            "reps": "10-12",
+            "note": "DORSALI (unilaterale). Permette rotazione del busto per ROM maggiore. RIR 1-2. Recupero 90 sec. [Maggiore ROM = maggiore stimolo ipertrofico secondo Wolf 2025]"
+          },
+          {
+            "id": "stacco_rumeno",
+            "nome": "Stacco Rumeno",
+            "serie": 3,
+            "reps": "8-10",
+            "note": "FEMORALI + GLUTEI. Schiena neutra, enfasi sul cedimento dei femorali (hip hinge). Bilanciere o manubri. RIR 2. Recupero 2 min. NB: questo è un esercizio di trazione per femorali — si sovrappone bene col giorno Legs."
+          },
+          {
+            "id": "rear_delt_fly",
+            "nome": "Rear Delt Flyes ai Cavi",
+            "serie": 3,
+            "reps": "15-20",
+            "note": "DELTOIDE POSTERIORE. Doppio cavo incrociato o pec-deck inversa. Leggero, focus sulla contrazione. RIR 1. Recupero 60 sec. [Salute della spalla + ipertrofia deltoide posteriore]"
+          },
+          {
+            "id": "curl_ez",
+            "nome": "Curl con Bilanciere EZ",
+            "serie": 3,
+            "reps": "8-10",
+            "note": "BICIPITI. EZ bar riduce lo stress sul polso rispetto al bilanciere dritto. No slancio: isolamento puro. RIR 1-2. Recupero 90 sec."
+          },
+          {
+            "id": "curl_incline_mdb",
+            "nome": "Curl Incline con Manubri",
+            "serie": 2,
+            "reps": "10-12",
+            "note": "BICIPITI (capo lungo). Panca inclinata → massimo allungamento brachiale. Lento in discesa (3s). RIR 1. Recupero 60 sec."
+          }
+        ]
+      },
+      {
+        "id": "g3",
+        "nome": "Legs",
+        "esercizi": [
+          {
+            "id": "cardio_warmup",
+            "nome": "Riscaldamento",
+            "serie": 1,
+            "reps": "5-8 min",
+            "note": "Cyclette a bassa resistenza + mobilità anca e caviglia."
+          },
+          {
+            "id": "squat",
+            "nome": "Squat con Bilanciere (Back Squat)",
+            "serie": 4,
+            "reps": "6-8",
+            "note": "QUADRICIPITI + GLUTEI. Esercizio principale: eseguilo fresco. Scendi sotto il parallelo (ROM allungato). RIR 2. Recupero 3 min. [Carico più alto tra i compound: recupero più lungo è essenziale per mantenere volume]"
+          },
+          {
+            "id": "leg_press",
+            "nome": "Leg Press",
+            "serie": 3,
+            "reps": "10-12",
+            "note": "QUADRICIPITI. Piedi a larghezza spalle, scendi fino a ~90°. Permette di aggiungere volume ai quad senza caricare la schiena. RIR 1-2. Recupero 2 min."
+          },
+          {
+            "id": "squat_bulgaro",
+            "nome": "Squat Bulgaro con Manubri",
+            "serie": 3,
+            "reps": "10 per gamba",
+            "note": "GLUTEI + QUAD (unilaterale). Corregge asimmetrie. Piede posteriore su panca. Busto leggermente inclinato per enfatizzare i glutei. RIR 1-2. Recupero 90 sec per lato."
+          },
+          {
+            "id": "hip_thrust",
+            "nome": "Hip Thrust con Bilanciere / Macchina",
+            "serie": 3,
+            "reps": "10-12",
+            "note": "GLUTEI. Contrazione isometrica 1s in cima. Petto spinto avanti, mento in dentro. RIR 1-2. Recupero 90 sec. [Hip Thrust è l'esercizio con massima attivazione EMG dei glutei]"
+          },
+          {
+            "id": "leg_curl_mac",
+            "nome": "Leg Curl alla Macchina (sdraiato)",
+            "serie": 3,
+            "reps": "10-12",
+            "note": "FEMORALI. Sdraiato = maggiore ROM nella posizione allungata. Contrazione isometrica 1s in cima. RIR 1. Recupero 90 sec."
+          },
+          {
+            "id": "adduttori",
+            "nome": "Adductor Machine",
+            "serie": 3,
+            "reps": "12-15",
+            "note": "ADDUTTORI. Spesso trascurati ma importanti per la stabilità dell'anca. RIR 1. Recupero 60 sec."
+          },
+          {
+            "id": "calf_raises",
+            "nome": "Calf Raises in Piedi (macchina o gradino)",
+            "serie": 4,
+            "reps": "15-20",
+            "note": "GEMELLI. Pausa di 2s in massimo allungamento in basso. Contrazione in cima. RIR 1. Recupero 60 sec. [Polpacci rispondono meglio a rep medio-alte con enfasi sull'allungamento]"
+          },
+          {
+            "id": "crunch_cavo",
+            "nome": "Crunch ai Cavi / Hanging Leg Raise",
+            "serie": 3,
+            "reps": "12-15",
+            "note": "CORE. Opzionale a fine sessione se c'è ancora energia. Crunch ai cavi alti con nuca lontana dalla macchina. RIR 1. Recupero 60 sec."
+          }
+        ]
+      }
+    ]
+  }
+}

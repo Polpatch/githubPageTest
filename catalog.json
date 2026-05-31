@@ -1,0 +1,20 @@
+[
+  {
+    "file": "schede/push_a.json",
+    "nome": "Push A",
+    "categoria": "Push",
+    "descrizione": "Petto, spalle e tricipiti — Lunedì e Giovedì"
+  },
+  {
+    "file": "schede/pull_a.json",
+    "nome": "Pull A",
+    "categoria": "Pull",
+    "descrizione": "Schiena e bicipiti — Martedì e Venerdì"
+  },
+  {
+    "file": "schede/legs_a.json",
+    "nome": "Legs A",
+    "categoria": "Legs",
+    "descrizione": "Gambe e glutei — Mercoledì e Sabato"
+  }
+]

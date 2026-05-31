@@ -1,0 +1,56 @@
+{
+  "scheda": {
+    "nome": "IpertrofiaIntensa",
+    "numero": "01",
+    "mese": "03",
+    "anno": "2026",
+    "autore": "Coach Estremo",
+    "versione": "1.0",
+    "giorni": [
+      {
+        "id": "lun",
+        "nome": "Petto & Tricipiti",
+        "esercizi": [
+          { "id": "panca_piana",      "nome": "Panca Piana",         "serie": 4, "reps": "8-10",  "note": "Controllo eccentrico 3s" },
+          { "id": "panca_inclinata",  "nome": "Panca Inclinata Mdb", "serie": 3, "reps": "10-12", "note": "Massima apertura in basso" },
+          { "id": "croci_cavi",       "nome": "Croci ai Cavi Bassi", "serie": 3, "reps": "12-15", "note": "Contrazione in cima" },
+          { "id": "pushdown",         "nome": "Pushdown Cavi",       "serie": 4, "reps": "12-15", "note": "Gomiti fissi" },
+          { "id": "estensione_sopra", "nome": "Estensione Tricipiti", "serie": 3, "reps": "12",    "note": "Overhead, manubrio singolo" }
+        ]
+      },
+      {
+        "id": "mar",
+        "nome": "Schiena & Bicipiti",
+        "esercizi": [
+          { "id": "trazioni",         "nome": "Trazioni",            "serie": 4, "reps": "8-10",  "note": "Ampio ROM" },
+          { "id": "lat_machine_prona","nome": "Lat Machine Pronata", "serie": 3, "reps": "10-12", "note": "Stretta presa" },
+          { "id": "rematore_mdb",     "nome": "Rematore Manubrio",   "serie": 3, "reps": "12",    "note": "Unilaterale, supporto ginocchio" },
+          { "id": "curl_concentrato", "nome": "Curl Concentrato",    "serie": 3, "reps": "12-15", "note": "Massima concentrazione muscolare" },
+          { "id": "curl_martello",    "nome": "Curl Martello",       "serie": 3, "reps": "12",    "note": "Presa neutra" }
+        ]
+      },
+      {
+        "id": "gio",
+        "nome": "Gambe",
+        "esercizi": [
+          { "id": "squat_bulgaro",  "nome": "Squat Bulgaro",  "serie": 4, "reps": "10 per gamba","note": "Piede posteriore su panca" },
+          { "id": "leg_press",      "nome": "Leg Press",      "serie": 3, "reps": "12-15",       "note": "Piedi alti per femorali" },
+          { "id": "stacco_rumeno",  "nome": "Stacco Rumeno",  "serie": 4, "reps": "10-12",       "note": "Schiena piatta, enfasi femorali" },
+          { "id": "leg_extension",  "nome": "Leg Extension",  "serie": 3, "reps": "15",          "note": "Full extension, contrazione isometrica" },
+          { "id": "calf_raises",    "nome": "Calf Raises",    "serie": 5, "reps": "20",          "note": "Pause al massimo allungamento" }
+        ]
+      },
+      {
+        "id": "sab",
+        "nome": "Spalle & Core",
+        "esercizi": [
+          { "id": "lento_avanti",    "nome": "Lento Avanti",     "serie": 4, "reps": "10-12", "note": "Bilanciere o manubri seduto" },
+          { "id": "alzate_laterali", "nome": "Alzate Laterali",  "serie": 4, "reps": "15-20", "note": "Leggero, drop set finale" },
+          { "id": "face_pull",       "nome": "Face Pull",        "serie": 3, "reps": "15",    "note": "Cavi alti, protezione rotatori" },
+          { "id": "plank_dinamico",  "nome": "Plank Dinamico",   "serie": 3, "reps": "30s",   "note": "Alternanza antebraccio/mano" },
+          { "id": "crunch_cavi",     "nome": "Crunch ai Cavi",   "serie": 4, "reps": "15",    "note": "Cavi alti, contrazione addome" }
+        ]
+      }
+    ]
+  }
+}

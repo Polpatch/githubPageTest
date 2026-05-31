@@ -1,0 +1,45 @@
+{
+  "scheda": {
+    "nome": "ForzeBase",
+    "numero": "01",
+    "mese": "01",
+    "anno": "2026",
+    "autore": "Coach Estremo",
+    "versione": "1.0",
+    "giorni": [
+      {
+        "id": "lun",
+        "nome": "Push",
+        "esercizi": [
+          { "id": "panca_piana",     "nome": "Panca Piana",       "serie": 4, "reps": "6-8",   "note": "Presa larga, scendi al petto" },
+          { "id": "panca_inclinata","nome": "Panca Inclinata",   "serie": 3, "reps": "8-10",  "note": "30°, manubri o bilanciere" },
+          { "id": "lento_avanti",   "nome": "Lento Avanti",      "serie": 4, "reps": "6-8",   "note": "Seduto, bilanciere o manubri" },
+          { "id": "alzate_lat",     "nome": "Alzate Laterali",   "serie": 3, "reps": "12-15", "note": "Controllo fase negativa" },
+          { "id": "french_press",   "nome": "French Press",      "serie": 3, "reps": "10-12", "note": "EZ bar, gomiti fermi" }
+        ]
+      },
+      {
+        "id": "mer",
+        "nome": "Pull",
+        "esercizi": [
+          { "id": "stacco",          "nome": "Stacco da Terra",    "serie": 4, "reps": "4-6",   "note": "Schiena neutra, piedi a larghezza fianchi" },
+          { "id": "trazioni",        "nome": "Trazioni",           "serie": 4, "reps": "6-10",  "note": "Presa pronata, petto verso la sbarra" },
+          { "id": "rematore",        "nome": "Rematore Bilanciere","serie": 3, "reps": "8-10",  "note": "Busto a 45°, tira verso ombelico" },
+          { "id": "curl_bilanciere", "nome": "Curl Bilanciere",    "serie": 3, "reps": "8-10",  "note": "No slancio dei gomiti" },
+          { "id": "curl_manubri",    "nome": "Curl Alternato",    "serie": 3, "reps": "10-12", "note": "Supinazione completa in cima" }
+        ]
+      },
+      {
+        "id": "ven",
+        "nome": "Gambe",
+        "esercizi": [
+          { "id": "squat",       "nome": "Squat",             "serie": 4, "reps": "6-8",        "note": "Scendi sotto il parallelo" },
+          { "id": "leg_press",   "nome": "Leg Press",         "serie": 3, "reps": "10-12",     "note": "Piedi a larghezza spalle" },
+          { "id": "affondi",     "nome": "Affondi Camminati", "serie": 3, "reps": "12 per lato","note": "Bilanciere o manubri" },
+          { "id": "leg_curl",    "nome": "Leg Curl",          "serie": 4, "reps": "10-12",     "note": "Isometrico 1s in cima" },
+          { "id": "calf_raises", "nome": "Calf Raises",       "serie": 4, "reps": "15-20",     "note": "Range completo, pausa in basso" }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "push_a",
+  "nome": "Push A",
+  "categoria": "Push",
+  "descrizione": "Petto, spalle e tricipiti",
+  "giorni": [
+    {
+      "giorno": "Lunedì",
+      "etichetta": "Push A — Settimana 1",
+      "esercizi": [
+        { "id": "panca_piana",    "nome": "Panca Piana",       "serie": 4, "reps": "6-8",   "recupero": 120, "note": "Bilanciere, presa leggermente più larga delle spalle" },
+        { "id": "shoulder_press","nome": "Shoulder Press",    "serie": 3, "reps": "8-10",  "recupero": 90,  "note": "Manubri, seduto con schiena supportata" },
+        { "id": "pec_deck",      "nome": "Pec Deck",          "serie": 3, "reps": "10-12", "recupero": 60,  "note": "Porta il gomito in linea con la spalla" },
+        { "id": "lat_raise",     "nome": "Lateral Raise",     "serie": 4, "reps": "12-15", "recupero": 45,  "note": "Leggero bend del gomito, non alzare sopra le spalle" },
+        { "id": "tricep_rope",   "nome": "Tricep Rope",       "serie": 3, "reps": "12-15", "recupero": 60,  "note": "Apertura finale delle mani in basso" }
+      ]
+    },
+    {
+      "giorno": "Giovedì",
+      "etichetta": "Push A — Settimana 2",
+      "esercizi": [
+        { "id": "panca_inclinata","nome": "Panca Inclinata",   "serie": 4, "reps": "8-10",  "recupero": 120, "note": "30° di inclinazione, focus sulla parte alta del petto" },
+        { "id": "arnold_press",  "nome": "Arnold Press",      "serie": 3, "reps": "10-12", "recupero": 90,  "note": "Rotazione del polso durante la spinta" },
+        { "id": "cable_fly",     "nome": "Cable Fly",         "serie": 3, "reps": "12-15", "recupero": 60,  "note": "Cavi alti, traiettoria semicircolare" },
+        { "id": "front_raise",   "nome": "Front Raise",       "serie": 3, "reps": "12-15", "recupero": 45,  "note": "Alternato, controllo nella fase di discesa" },
+        { "id": "skullcrusher",  "nome": "Skull Crusher",     "serie": 3, "reps": "10-12", "recupero": 75,  "note": "EZ-bar, abbassa dietro la testa non alla fronte" }
+      ]
+    }
+  ]
+}

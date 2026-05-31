@@ -1,0 +1,56 @@
+{
+  "scheda": {
+    "nome": "IpertrofiaIntensa",
+    "numero": "02",
+    "mese": "04",
+    "anno": "2026",
+    "autore": "Coach Estremo",
+    "versione": "1.0",
+    "giorni": [
+      {
+        "id": "lun",
+        "nome": "Petto & Tricipiti",
+        "esercizi": [
+          { "id": "panca_piana",      "nome": "Panca Piana",         "serie": 4, "reps": "6-8",   "note": "Intensità aumentata rispetto al mese scorso" },
+          { "id": "panca_inclinata",  "nome": "Panca Inclinata Mdb", "serie": 3, "reps": "8-10",  "note": "Massima apertura in basso" },
+          { "id": "croci_pec_deck",   "nome": "Croci Pec Deck",      "serie": 3, "reps": "12-15", "note": "Contrazione 2s in cima" },
+          { "id": "pushdown",         "nome": "Pushdown Cavi",       "serie": 4, "reps": "12",    "note": "Superset con estensioni" },
+          { "id": "estensione_sopra", "nome": "Estensione Overhead", "serie": 3, "reps": "12",    "note": "Manubrio singolo" }
+        ]
+      },
+      {
+        "id": "mar",
+        "nome": "Schiena & Bicipiti",
+        "esercizi": [
+          { "id": "trazioni_zavorra",  "nome": "Trazioni con Zavorra",  "serie": 4, "reps": "6-8",   "note": "Progressione con cintura" },
+          { "id": "rematore_bilanciere","nome": "Rematore Bilanciere",  "serie": 4, "reps": "8-10",  "note": "Presa supina" },
+          { "id": "seated_row",        "nome": "Seated Row",            "serie": 3, "reps": "10-12", "note": "Cavi bassi, presa stretta" },
+          { "id": "curl_bilanciere",   "nome": "Curl Bilanciere",       "serie": 4, "reps": "8-10",  "note": "Progressione dal mese scorso" },
+          { "id": "curl_incline",      "nome": "Curl Incline Mdb",      "serie": 3, "reps": "12",    "note": "Massimo stiramento brachiale" }
+        ]
+      },
+      {
+        "id": "gio",
+        "nome": "Gambe",
+        "esercizi": [
+          { "id": "squat",              "nome": "Squat",              "serie": 4, "reps": "6-8",   "note": "Volume aumentato dal mese scorso" },
+          { "id": "squat_bulgaro",      "nome": "Squat Bulgaro",      "serie": 3, "reps": "10",    "note": "Unilaterale, bilanciere" },
+          { "id": "stacco_rumeno",      "nome": "Stacco Rumeno",      "serie": 4, "reps": "10",    "note": "Enfasi femorali" },
+          { "id": "leg_press",          "nome": "Leg Press",          "serie": 3, "reps": "15",    "note": "Pump finale" },
+          { "id": "calf_raises_unilat", "nome": "Calf Unilaterale",   "serie": 4, "reps": "20",    "note": "Piede singolo per maggiore ROM" }
+        ]
+      },
+      {
+        "id": "sab",
+        "nome": "Spalle & Core",
+        "esercizi": [
+          { "id": "lento_avanti",    "nome": "Lento Avanti",    "serie": 5, "reps": "8-10", "note": "Incremento volume" },
+          { "id": "alzate_laterali", "nome": "Alzate Laterali", "serie": 5, "reps": "15",   "note": "Cable o manubri" },
+          { "id": "rear_delt_fly",   "nome": "Rear Delt Fly",   "serie": 4, "reps": "15",   "note": "Inclinato, deltoide posteriore" },
+          { "id": "ab_wheel",        "nome": "Ab Wheel Rollout","serie": 3, "reps": "10",   "note": "Dal ginocchio o in piedi" },
+          { "id": "hanging_leg_raise","nome": "Hanging Leg Raise","serie": 3, "reps": "12", "note": "Controllo nel movimento" }
+        ]
+      }
+    ]
+  }
+}

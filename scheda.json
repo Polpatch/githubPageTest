@@ -1,0 +1,92 @@
+[
+  {
+    "id": "push_a_maggio2026",
+    "nome": "Push A",
+    "categoria": "Push",
+    "descrizione": "Petto, spalle e tricipiti",
+    "giorni": [
+      {
+        "giorno": "Lunedì",
+        "etichetta": "Push A",
+        "esercizi": [
+          { "id": "panca_piana", "nome": "Panca Piana", "serie": 4, "reps": "6-8", "recupero": 120, "note": "Bilanciere, presa leggermente più larga delle spalle" },
+          { "id": "shoulder_press", "nome": "Shoulder Press", "serie": 3, "reps": "8-10", "recupero": 90, "note": "Manubri, seduto con schiena supportata" },
+          { "id": "pec_deck", "nome": "Pec Deck", "serie": 3, "reps": "10-12", "recupero": 60, "note": "Porta il gomito in linea con la spalla" },
+          { "id": "lat_raise", "nome": "Lateral Raise", "serie": 4, "reps": "12-15", "recupero": 45, "note": "Leggero bend del gomito, non alzare sopra le spalle" },
+          { "id": "tricep_rope", "nome": "Tricep Rope", "serie": 3, "reps": "12-15", "recupero": 60, "note": "Apertura finale delle mani in basso" }
+        ]
+      },
+      {
+        "giorno": "Giovedì",
+        "etichetta": "Push A",
+        "esercizi": [
+          { "id": "panca_inclinata", "nome": "Panca Inclinata", "serie": 4, "reps": "8-10", "recupero": 120, "note": "30° di inclinazione, focus sulla parte alta del petto" },
+          { "id": "arnold_press", "nome": "Arnold Press", "serie": 3, "reps": "10-12", "recupero": 90, "note": "Rotazione del polso durante la spinta" },
+          { "id": "cable_fly", "nome": "Cable Fly", "serie": 3, "reps": "12-15", "recupero": 60, "note": "Cavi alti, traiettoria semicircolare" },
+          { "id": "front_raise", "nome": "Front Raise", "serie": 3, "reps": "12-15", "recupero": 45, "note": "Alternato, controllo nella fase di discesa" },
+          { "id": "skullcrusher", "nome": "Skull Crusher", "serie": 3, "reps": "10-12", "recupero": 75, "note": "EZ-bar, abbassa dietro la testa non alla fronte" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "pull_a_maggio2026",
+    "nome": "Pull A",
+    "categoria": "Pull",
+    "descrizione": "Schiena e bicipiti",
+    "giorni": [
+      {
+        "giorno": "Martedì",
+        "etichetta": "Pull A",
+        "esercizi": [
+          { "id": "trazioni", "nome": "Trazioni", "serie": 4, "reps": "6-10", "recupero": 120, "note": "Presa prona larga, full ROM" },
+          { "id": "bent_over_row", "nome": "Bent Over Row", "serie": 4, "reps": "8-10", "recupero": 90, "note": "Bilanciere, busto quasi parallelo al suolo" },
+          { "id": "lat_machine", "nome": "Lat Machine", "serie": 3, "reps": "10-12", "recupero": 75, "note": "Presa supina, porta la sbarra al mento" },
+          { "id": "face_pull", "nome": "Face Pull", "serie": 3, "reps": "15-20", "recupero": 45, "note": "Cavo alto, porta al viso con gomiti alti" },
+          { "id": "curl_bilanciere", "nome": "Curl Bilanciere", "serie": 3, "reps": "10-12", "recupero": 60, "note": "Gomiti fissi ai fianchi, non oscillare" }
+        ]
+      },
+      {
+        "giorno": "Venerdì",
+        "etichetta": "Pull A",
+        "esercizi": [
+          { "id": "stacco", "nome": "Stacco Rumeno", "serie": 4, "reps": "8-10", "recupero": 120, "note": "Manubri, schiena neutra, scendi fino a metà tibia" },
+          { "id": "chest_supported_row", "nome": "Chest Supported Row", "serie": 4, "reps": "10-12", "recupero": 90, "note": "Petto sul panchetto inclinato, tira i gomiti indietro" },
+          { "id": "straight_arm_pulldown", "nome": "Straight Arm Pulldown", "serie": 3, "reps": "12-15", "recupero": 60, "note": "Braccia tese, focus sul gran dorsale" },
+          { "id": "hammer_curl", "nome": "Hammer Curl", "serie": 3, "reps": "12-15", "recupero": 60, "note": "Presa neutra, alternato" },
+          { "id": "shrug", "nome": "Shrug", "serie": 3, "reps": "12-15", "recupero": 45, "note": "Manubri, mantieni 2 secondi in alto" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "legs_a_maggio2026",
+    "nome": "Legs A",
+    "categoria": "Legs",
+    "descrizione": "Gambe e glutei",
+    "giorni": [
+      {
+        "giorno": "Mercoledì",
+        "etichetta": "Legs A",
+        "esercizi": [
+          { "id": "squat", "nome": "Squat", "serie": 4, "reps": "6-8", "recupero": 150, "note": "Bilanciere in barra, scendi a 90° o più in basso" },
+          { "id": "leg_press", "nome": "Leg Press", "serie": 3, "reps": "10-12", "recupero": 90, "note": "Piedi a larghezza spalle, non bloccare le ginocchia" },
+          { "id": "affondi", "nome": "Affondi Camminate", "serie": 3, "reps": "12 per gamba", "recupero": 75, "note": "Manubri, ginocchio posteriore sfiora il suolo" },
+          { "id": "leg_curl", "nome": "Leg Curl", "serie": 3, "reps": "12-15", "recupero": 60, "note": "Curl sdraiato, fase eccentrica lenta" },
+          { "id": "calf_raise", "nome": "Calf Raise", "serie": 4, "reps": "15-20", "recupero": 45, "note": "In piedi, pausa 1s in cima" }
+        ]
+      },
+      {
+        "giorno": "Sabato",
+        "etichetta": "Legs A",
+        "esercizi": [
+          { "id": "hip_thrust", "nome": "Hip Thrust", "serie": 4, "reps": "8-12", "recupero": 90, "note": "Bilanciere o macchina, strizza i glutei in alto" },
+          { "id": "hack_squat", "nome": "Hack Squat", "serie": 3, "reps": "10-12", "recupero": 90, "note": "Piedi alti sul piattaforma per più gluteo" },
+          { "id": "leg_extension", "nome": "Leg Extension", "serie": 3, "reps": "15-20", "recupero": 45, "note": "Full ROM, pausa 1s in estensione" },
+          { "id": "good_morning", "nome": "Good Morning", "serie": 3, "reps": "12-15", "recupero": 60, "note": "Bilanciere leggero, schiena neutra" },
+          { "id": "seated_calf", "nome": "Seated Calf Raise", "serie": 4, "reps": "15-20", "recupero": 45, "note": "Isola il soleo, pausa in basso per stretching" }
+        ]
+      }
+    ]
+  }
+]
