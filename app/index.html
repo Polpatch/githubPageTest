@@ -16,6 +16,7 @@
       * { box-sizing: border-box; }
       body { margin: 0; min-height: 100vh; }
       .app-shell { max-width: 980px; margin: 0 auto; padding: 20px; }
+      .app-shell--timer { padding-top: 96px; } /* 12 top + 64 height + 20 gap */
       .app-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 24px; }
       .app-header h1 { margin: 0 0 6px; font-size: clamp(1.8rem, 2.5vw, 2.8rem); }
       .app-header p { margin: 0; color: #555; max-width: 640px; }
@@ -121,11 +122,16 @@
       .primary-button, .secondary-button { border: 0; border-radius: 999px; padding: 12px 20px; cursor: pointer; font-weight: 600; }
       .primary-button { background: #111; color: white; }
       .secondary-button { background: #f3f4f6; color: #111; }
-      .timer-card { background: #eef5ff; padding: 18px; border-radius: 20px; border: 1px solid #dbeafe; }
-      .timer-label { color: #1d4ed8; font-weight: 700; margin-bottom: 10px; }
-      .timer-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
-      .timer-bar { height: 10px; background: #dbeafe; border-radius: 999px; overflow: hidden; }
-      .timer-bar-fill { height: 100%; background: #2563eb; transition: width 0.2s ease; }
+      /* Timer toast — floats below top edge with rounded card look */
+      .timer-toast { position: fixed; top: 12px; left: 12px; right: 12px; z-index: 150; height: 64px; background: white; border-radius: 18px; box-shadow: 0 4px 24px rgba(12,18,40,.16), 0 1px 6px rgba(12,18,40,.08); display: flex; align-items: center; gap: 14px; padding: 0 20px; }
+      .timer-toast-label { flex: 1; font-size: 0.95rem; font-weight: 600; color: #374151; }
+      .timer-toast-actions { display: flex; gap: 8px; align-items: center; }
+      .timer-action-btn { width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; background: #f3f4f6; color: #374151; transition: background .12s; padding: 0; }
+      .timer-action-btn:active { background: #e5e7eb; }
+      .timer-action-btn--skip { background: #eff6ff; color: #2563eb; }
+      .timer-action-btn--skip:active { background: #dbeafe; }
+      .timer-action-btn--stop { background: #fff1f1; color: #b91c1c; }
+      .timer-action-btn--stop:active { background: #fecaca; }
       .exercise-card.selected { border: 1px solid #2563eb; }
       .session-history { background: #fff; border-radius: 24px; padding: 22px; box-shadow: 0 10px 28px rgba(12,18,40,.06); }
       .session-history h3 { margin-top: 0; }

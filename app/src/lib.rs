@@ -432,10 +432,79 @@ fn app() -> Html {
         let timer_handle  = timer_handle.clone();
         let timer_running = timer_running.clone();
         let timer_left    = timer_left.clone();
+        let timer_total   = timer_total.clone();
         Callback::from(move |_: ()| {
             timer_handle.borrow_mut().take();
             timer_running.set(false);
             timer_left.set(0);
+            timer_total.set(0);
+        })
+    };
+
+    // ── Skip timer — stop + immediately save the next incomplete set ──────────
+    let on_skip_timer = {
+        let workout            = workout.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
+        let current_session_id = current_session_id.clone();
+        let timer_handle       = timer_handle.clone();
+        let timer_running      = timer_running.clone();
+        let timer_left         = timer_left.clone();
+        let timer_total        = timer_total.clone();
+        Callback::from(move |_: ()| {
+            // 1. Stop the interval
+            timer_handle.borrow_mut().take();
+            timer_running.set(false);
+            timer_left.set(0);
+            timer_total.set(0);
+            // 2. Save the next incomplete set (mirrors timer's at-zero logic)
+            if let Some(workout) = &*workout {
+                if let Some(day) = workout.giorni.get(*day_index) {
+                    if let Some(exercise) = day.esercizi.get(*selected_exercise) {
+                        let existing: HashSet<u32> = (*saved_sets).iter()
+                            .filter(|s| s.exercise_id == exercise.id)
+                            .map(|s| s.set_number)
+                            .collect();
+                        let next_set = (1..=exercise.serie)
+                            .find(|n| !existing.contains(n))
+                            .unwrap_or(existing.len() as u32 + 1);
+                        if next_set > exercise.serie { return; }
+                        let next_idx = (next_set - 1) as usize;
+                        let peso = weight_inputs.get(&exercise.id)
+                            .and_then(|v| v.get(next_idx))
+                            .and_then(|v| v.parse::<f32>().ok());
+                        let reps = reps_inputs.get(&exercise.id)
+                            .and_then(|v| v.get(next_idx))
+                            .cloned();
+                        let list = upsert_completed_set(
+                            (*saved_sets).clone(), exercise, next_set, peso, reps,
+                        );
+                        let current_idx = *selected_exercise;
+                        let ex_done = list.iter()
+                            .filter(|s| s.exercise_id == exercise.id)
+                            .count() >= exercise.serie as usize;
+                        let next_active = if ex_done {
+                            let next = next_incomplete_exercise(day, &list, current_idx);
+                            if next != current_idx { selected_exercise.set(next); }
+                            next
+                        } else { current_idx };
+                        let sid = {
+                            let cur = (*current_session_id).clone();
+                            if cur.is_empty() {
+                                let new_sid = create_session_for_day(workout, *day_index);
+                                current_session_id.set(new_sid.clone());
+                                new_sid
+                            } else { cur }
+                        };
+                        let total = total_day_sets(workout, &day.giorno);
+                        update_session_sets(&workout.id, &sid, &list, next_active, total);
+                        saved_sets.set(list);
+                    }
+                }
+            }
         })
     };
 
@@ -787,6 +856,17 @@ fn app() -> Html {
         );
     }
 
+    // Pre-compute timer circle dashoffset (2π × r=19 ≈ 119.38)
+    let timer_dashoffset: String = {
+        const CIRCUM: f64 = 119.38;
+        if *timer_total > 0 {
+            let frac = *timer_left as f64 / *timer_total as f64;
+            format!("{:.2}", CIRCUM * (1.0 - frac))
+        } else {
+            format!("{:.2}", CIRCUM)
+        }
+    };
+
     // Pre-compute history sessions (needed in render, can't use let inside html!)
     let history_sessions: Vec<Session> = if *history_open {
         if let Some(w) = &*workout {
@@ -801,7 +881,7 @@ fn app() -> Html {
     let close_menu = { let m = menu_open.clone(); Callback::from(move |_| m.set(false)) };
 
     html! {
-        <div class="app-shell">
+        <div class={classes!("app-shell", if *timer_running || *timer_left > 0 { Some("app-shell--timer") } else { None })}>
             <header class="app-header">
                 <button class="burger-btn" onclick={open_menu} title="Menu">
                     <span></span><span></span><span></span>
@@ -984,6 +1064,50 @@ fn app() -> Html {
                         <p class="menu-hint">
                             {"Esporta tutte le schede e sessioni. L'importazione sovrascrive i dati esistenti."}
                         </p>
+                    </div>
+                </div>
+            }
+
+            // ── Timer toast (fixed, top of viewport) ─────────────────────────
+            if *timer_running || *timer_left > 0 {
+                <div class="timer-toast">
+                    // Circular countdown
+                    <svg viewBox="0 0 50 50" width="50" height="50" style="flex-shrink:0">
+                        // Background ring
+                        <circle cx="25" cy="25" r="19"
+                                fill="none" stroke="#dbeafe" stroke-width="3.5"/>
+                        // Progress arc (depletes as time runs out)
+                        <circle cx="25" cy="25" r="19"
+                                fill="none" stroke="#2563eb" stroke-width="3.5"
+                                stroke-linecap="round"
+                                stroke-dasharray="119.38"
+                                stroke-dashoffset={timer_dashoffset}
+                                transform="rotate(-90, 25, 25)"/>
+                        // Seconds label
+                        <text x="25" y="30" text-anchor="middle"
+                              font-size="13" font-weight="700" fill="#111">
+                            { format!("{}s", *timer_left) }
+                        </text>
+                    </svg>
+                    <span class="timer-toast-label">
+                        { if *timer_running { "Recupero" } else { "In pausa" } }
+                    </span>
+                    <div class="timer-toast-actions">
+                        // Pause / Resume
+                        <button class="timer-action-btn" title="Pausa / Riprendi"
+                                onclick={{ let cb = on_start_timer.clone(); Callback::from(move |_| cb.emit(())) }}>
+                            { if *timer_running { "⏸" } else { "▶" } }
+                        </button>
+                        // Skip — stop timer and save the set immediately
+                        <button class="timer-action-btn timer-action-btn--skip" title="Salta e registra"
+                                onclick={{ let cb = on_skip_timer.clone(); Callback::from(move |_| cb.emit(())) }}>
+                            {"⏭"}
+                        </button>
+                        // Stop — cancel without saving
+                        <button class="timer-action-btn timer-action-btn--stop" title="Annulla"
+                                onclick={{ let cb = on_cancel_timer.clone(); Callback::from(move |_| cb.emit(())) }}>
+                            {"✕"}
+                        </button>
                     </div>
                 </div>
             }

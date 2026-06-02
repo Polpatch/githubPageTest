@@ -205,6 +205,33 @@ pub fn exercise_card(props: &ExerciseCardProps) -> Html {
         props.saved_sets.iter().any(|e| e.exercise_id == exercise.id && e.set_number == s)
     }).collect();
 
+    // ── Auto-advance active_set after a timer save ──────────────────────────
+    // The timer saves sets from lib.rs and can't touch active_set directly.
+    // If the currently active dot just became completed (timer saved it),
+    // advance to the next incomplete set. Manual register handles its own
+    // advancement via onclick, so we only need to act here.
+    {
+        let asc  = active_set.clone();
+        let snap = dot_done.clone();
+        let cv   = clamped;
+        // n_saves = how many sets of THIS exercise are saved; changes on timer save.
+        let n_saves = props.saved_sets.iter()
+            .filter(|s| s.exercise_id == exercise.id)
+            .count();
+        use_effect_with_deps(
+            move |_: &usize| {
+                // Act only if the active dot is now completed (timer just saved it).
+                if snap.get(cv).copied().unwrap_or(false) {
+                    let next = (1..snap.len())
+                        .map(|off| (cv + off) % snap.len())
+                        .find(|&i| !snap.get(i).copied().unwrap_or(false));
+                    if let Some(idx) = next { asc.set(idx); }
+                }
+                || ()
+            },
+            n_saves,
+        );
+    }
 
     // Pre-compute chart data only when chart is open
     let chart_points: Vec<WeightPoint> = if *chart_open {
@@ -365,20 +392,6 @@ pub fn exercise_card(props: &ExerciseCardProps) -> Html {
                         }
                     </div>
 
-                    { if props.timer.running {
-                        let pct = if props.timer.total > 0 {
-                            (props.timer.left as f32 / props.timer.total as f32) * 100.0
-                        } else { 0.0 };
-                        html! {
-                            <div class="timer-card">
-                                <div class="timer-label">{"Recupero in corso"}</div>
-                                <div class="timer-value">{ format!("{}s", props.timer.left) }</div>
-                                <div class="timer-bar">
-                                    <div class="timer-bar-fill" style={format!("width:{}%", pct)}></div>
-                                </div>
-                            </div>
-                        }
-                    } else { html! {} } }
                 </div>
             }
         </article>
