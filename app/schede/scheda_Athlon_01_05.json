@@ -1,0 +1,260 @@
+{
+  "id": "scheda_testo_ppl_compatta",
+  "nome": "Scheda Push/Pull/Legs — Compatta con gestione spalla",
+  "descrizione": "Scheda 3 giorni Push/Pull/Legs adattata per chi ha problemi alla spalla. Privilegia macchine guidate, prese neutre e ROM controllato. Include una legenda con protocollo di gestione della spalla.",
+  "categoria": "Push/Pull/Legs",
+  "giorni": [
+    {
+      "giorno": "Giorno 1",
+      "etichetta": "Push — Petto / Spalle / Tricipiti",
+      "esercizi": [
+        {
+          "id": "cardio_push",
+          "nome": "Cardio (Tapis roulant / Cyclette)",
+          "serie": 1,
+          "reps": "5-10 min",
+          "recupero": null,
+          "video": null,
+          "note": "Riscaldamento cardio iniziale"
+        },
+        {
+          "id": "machine_chest_press",
+          "nome": "Chest Press alla macchina (Machine Chest Press)",
+          "serie": 4,
+          "reps": "6-8",
+          "recupero": null,
+          "video": null,
+          "note": "Fondamentale. Preferita per la spalla: ROM controllato e traiettoria guidata."
+        },
+        {
+          "id": "db_flat_bench_or_floor_press",
+          "nome": "Distensioni panca piana con manubri o Floor Press (DB Flat Bench / Floor Press)",
+          "serie": 3,
+          "reps": "8-10",
+          "recupero": null,
+          "video": null,
+          "note": "Scegli Floor Press se la spalla è irritata: limita il ROM nell'allungamento."
+        },
+        {
+          "id": "low_incline_db_press",
+          "nome": "Distensioni su panca inclinata bassa con manubri (Low-Incline DB Press)",
+          "serie": 3,
+          "reps": "10-12",
+          "recupero": null,
+          "video": null,
+          "note": "Inclinazione 30°. Tieni i gomiti non troppo larghi."
+        },
+        {
+          "id": "lateral_raises",
+          "nome": "Alzate laterali con manubri o ai cavi (Lateral Raises)",
+          "serie": 4,
+          "reps": "12-15",
+          "recupero": null,
+          "video": null,
+          "note": "Braccio leggermente avanti. Alza al massimo fino all'altezza delle spalle. Riduci carico se dà fastidio."
+        },
+        {
+          "id": "y_raise_or_face_pull",
+          "nome": "Y-Raise ai cavi o Face Pull ai cavi",
+          "serie": 3,
+          "reps": "15-20",
+          "recupero": null,
+          "video": null,
+          "note": "Lavoro di cuffia dei rotatori e parte alta schiena. Sempre leggero e controllato."
+        },
+        {
+          "id": "rope_pushdown",
+          "nome": "Spinte in basso al cavo con corda — Tricipiti (Rope Pushdown)",
+          "serie": 3,
+          "reps": "10-12",
+          "recupero": null,
+          "video": null,
+          "note": null
+        },
+        {
+          "id": "overhead_tricep_extension",
+          "nome": "Estensioni sopra la testa per i tricipiti con manubrio o cavo (Overhead Tricep Extension)",
+          "serie": 2,
+          "reps": "12-15",
+          "recupero": null,
+          "video": null,
+          "note": "Evita se la spalla è in fase infiammatoria acuta."
+        }
+      ]
+    },
+    {
+      "giorno": "Giorno 2",
+      "etichetta": "Pull — Schiena / Bicipiti",
+      "esercizi": [
+        {
+          "id": "cardio_pull",
+          "nome": "Cardio (Tapis roulant / Cyclette)",
+          "serie": 1,
+          "reps": "5-10 min",
+          "recupero": null,
+          "video": null,
+          "note": "Riscaldamento cardio iniziale"
+        },
+        {
+          "id": "pull_up_neutral_supine",
+          "nome": "Trazioni alla sbarra presa neutra o supina (Pull-Up)",
+          "serie": 4,
+          "reps": "6-8",
+          "recupero": null,
+          "video": null,
+          "note": "Evita la presa larga e le tirate dietro la nuca. Concentrati sulle scapole che si chiudono."
+        },
+        {
+          "id": "lat_pulldown_neutral",
+          "nome": "Lat Machine presa neutra o stretta (Lat Pulldown)",
+          "serie": 3,
+          "reps": "8-10",
+          "recupero": null,
+          "video": null,
+          "note": "Alternativa alle trazioni se la spalla non collabora."
+        },
+        {
+          "id": "chest_supported_row",
+          "nome": "Rematore su panca inclinata con manubri o macchina (Chest-Supported Row)",
+          "serie": 3,
+          "reps": "8-10",
+          "recupero": null,
+          "video": null,
+          "note": "Versione con petto appoggiato: più sicura per la spalla. Presa neutra/stretta."
+        },
+        {
+          "id": "single_arm_cable_row",
+          "nome": "Rematore singolo al cavo (Single-Arm Cable Row)",
+          "serie": 3,
+          "reps": "10-12",
+          "recupero": null,
+          "video": null,
+          "note": "Per lato. Ferma la mano circa al fianco, non portare il gomito troppo dietro."
+        },
+        {
+          "id": "rear_delt_flyes",
+          "nome": "Alzate posteriori ai cavi o Pec Deck inversa (Rear Delt Flyes)",
+          "serie": 3,
+          "reps": "15-20",
+          "recupero": null,
+          "video": null,
+          "note": "Leggero e controllato. Fondamentale per la salute della spalla."
+        },
+        {
+          "id": "romanian_deadlift_pull",
+          "nome": "Stacco rumeno con bilanciere o manubri (Romanian Deadlift)",
+          "serie": 3,
+          "reps": "6-8",
+          "recupero": null,
+          "video": null,
+          "note": "Fondamentale per catena posteriore."
+        },
+        {
+          "id": "ez_bar_bicep_curl",
+          "nome": "Curl con bilanciere EZ (EZ Bar Bicep Curl)",
+          "serie": 3,
+          "reps": "8-10",
+          "recupero": null,
+          "video": null,
+          "note": null
+        },
+        {
+          "id": "incline_db_curl",
+          "nome": "Curl con manubri su panca inclinata (Incline DB Curl)",
+          "serie": 2,
+          "reps": "10-12",
+          "recupero": null,
+          "video": null,
+          "note": "Massimo allungamento del bicipite."
+        }
+      ]
+    },
+    {
+      "giorno": "Giorno 3",
+      "etichetta": "Legs — Gambe / Glutei / Core",
+      "esercizi": [
+        {
+          "id": "cardio_legs",
+          "nome": "Cardio (Tapis roulant / Cyclette)",
+          "serie": 1,
+          "reps": "5-10 min",
+          "recupero": null,
+          "video": null,
+          "note": "Riscaldamento cardio iniziale"
+        },
+        {
+          "id": "back_squat",
+          "nome": "Squat con bilanciere o Safety Bar (Back Squat / Safety Bar Squat)",
+          "serie": 4,
+          "reps": "5-6",
+          "recupero": null,
+          "video": null,
+          "note": "Fondamentale. Eseguilo prima di tutto, quando sei fresco."
+        },
+        {
+          "id": "leg_press",
+          "nome": "Leg Press orizzontale o a 45° (Leg Press)",
+          "serie": 3,
+          "reps": "10-12",
+          "recupero": null,
+          "video": null,
+          "note": null
+        },
+        {
+          "id": "bulgarian_split_squat",
+          "nome": "Affondi bulgari con manubri (Bulgarian Split Squat)",
+          "serie": 3,
+          "reps": "8-10",
+          "recupero": null,
+          "video": null,
+          "note": "Per gamba."
+        },
+        {
+          "id": "romanian_deadlift_or_leg_curl",
+          "nome": "Stacco rumeno o Leg Curl alla macchina (Romanian Deadlift / Leg Curl)",
+          "serie": 3,
+          "reps": "8-10",
+          "recupero": null,
+          "video": null,
+          "note": "Focalizzato sui femorali."
+        },
+        {
+          "id": "hip_thrust",
+          "nome": "Ponte per i glutei / Hip Thrust con bilanciere o macchina (Glute Bridge / Hip Thrust)",
+          "serie": 3,
+          "reps": "8-10",
+          "recupero": null,
+          "video": null,
+          "note": null
+        },
+        {
+          "id": "adductor_machine",
+          "nome": "Macchina adduttori (Adductor Machine)",
+          "serie": 3,
+          "reps": "12-15",
+          "recupero": null,
+          "video": null,
+          "note": null
+        },
+        {
+          "id": "abductor_machine",
+          "nome": "Macchina abduttori (Abductor Machine)",
+          "serie": 3,
+          "reps": "12-15",
+          "recupero": null,
+          "video": null,
+          "note": null
+        },
+        {
+          "id": "weighted_situp_or_cable_crunch",
+          "nome": "Sit-up con sovraccarico o Crunch al cavo (Weighted Sit-Up / Cable Crunch)",
+          "serie": 3,
+          "reps": "12-15",
+          "recupero": null,
+          "video": null,
+          "note": null
+        }
+      ]
+    }
+  ]
+}

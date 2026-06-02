@@ -1,0 +1,251 @@
+{
+  "id": "scheda_originale_pdf",
+  "nome": "Scheda Push/Pull/Legs — Originale PDF",
+  "descrizione": "Scheda 3 giorni Push/Pull/Legs estratta dal PDF originale. Focus su forza e ipertrofia con esercizi fondamentali.",
+  "categoria": "Push/Pull/Legs",
+  "giorni": [
+    {
+      "giorno": "Giorno 1",
+      "etichetta": "Push — Petto / Spalle / Tricipiti",
+      "esercizi": [
+        {
+          "id": "cardio_push",
+          "nome": "Cardio (Jog / Cyclette)",
+          "serie": 1,
+          "reps": "10 min",
+          "recupero": null,
+          "video": null,
+          "note": "Riscaldamento cardio iniziale"
+        },
+        {
+          "id": "flat_bench_bb_press",
+          "nome": "Panca piana con bilanciere (Flat Bench BB Press)",
+          "serie": 4,
+          "reps": "5",
+          "recupero": 120,
+          "video": null,
+          "note": "Fondamentale. 2 min recupero."
+        },
+        {
+          "id": "low_incline_db_flyes",
+          "nome": "Croci su panca bassa inclinata con manubri (Low Incline DB Flyes)",
+          "serie": 3,
+          "reps": "10",
+          "recupero": 90,
+          "video": null,
+          "note": "Inclinazione 30°. 1 min 30 sec recupero."
+        },
+        {
+          "id": "incline_bench_bb_press",
+          "nome": "Panca inclinata con bilanciere (Incline Bench BB Press)",
+          "serie": 3,
+          "reps": "6",
+          "recupero": 120,
+          "video": null,
+          "note": "Inclinazione 45°. 2 min recupero."
+        },
+        {
+          "id": "db_standing_shoulder_raises",
+          "nome": "Alzate laterali in piedi con manubri (DB Standing Shoulder Raises)",
+          "serie": 3,
+          "reps": "8",
+          "recupero": 90,
+          "video": null,
+          "note": "1 min 30 sec recupero."
+        },
+        {
+          "id": "dips_parallel_bars",
+          "nome": "Dips alle parallele (Dips Parallel Bars)",
+          "serie": 2,
+          "reps": "8",
+          "recupero": 120,
+          "video": null,
+          "note": "Ausiliario. 2 min recupero. Attenzione alla spalla."
+        },
+        {
+          "id": "skullcrushers",
+          "nome": "Skull Crushers (French Press)",
+          "serie": 3,
+          "reps": "8",
+          "recupero": 90,
+          "video": null,
+          "note": "1 min 30 sec recupero."
+        },
+        {
+          "id": "straight_bar_tricep_extensions",
+          "nome": "Estensioni tricipiti al cavo con barra dritta (Straight Bar Tricep Extensions)",
+          "serie": 3,
+          "reps": "10",
+          "recupero": 90,
+          "video": null,
+          "note": "1 min 30 sec recupero."
+        }
+      ]
+    },
+    {
+      "giorno": "Giorno 2",
+      "etichetta": "Pull — Schiena / Bicipiti",
+      "esercizi": [
+        {
+          "id": "cardio_pull",
+          "nome": "Cardio (Jog / Cyclette)",
+          "serie": 1,
+          "reps": "10 min",
+          "recupero": null,
+          "video": null,
+          "note": "Riscaldamento cardio iniziale"
+        },
+        {
+          "id": "pull_up_wide_grip",
+          "nome": "Trazioni alla sbarra presa larga (Pull-Up Wide Grip)",
+          "serie": 4,
+          "reps": "10",
+          "recupero": 120,
+          "video": "https://www.youtube.com/watch?v=eGo4IYlbE5g",
+          "note": "Fondamentale. 2 min recupero."
+        },
+        {
+          "id": "neutral_grip_lat_pulldown",
+          "nome": "Lat Machine presa neutra (Neutral Grip Lat Pulldown)",
+          "serie": 3,
+          "reps": "10",
+          "recupero": 90,
+          "video": "https://www.youtube.com/watch?v=CAwf7n6Luuc",
+          "note": "1 min 30 sec recupero."
+        },
+        {
+          "id": "bb_row",
+          "nome": "Rematore con bilanciere (BB Row)",
+          "serie": 3,
+          "reps": "6",
+          "recupero": 120,
+          "video": "https://www.youtube.com/watch?v=FWJR5Ve8bnQ",
+          "note": "Fondamentale. 2 min recupero."
+        },
+        {
+          "id": "pec_dek_rear_delt_flyes",
+          "nome": "Alzate posteriori al pec deck (Rear Delt Flyes)",
+          "serie": 3,
+          "reps": "10",
+          "recupero": 90,
+          "video": "https://www.youtube.com/watch?v=RToB2KDDZ9E",
+          "note": "1 min 30 sec recupero."
+        },
+        {
+          "id": "upright_row",
+          "nome": "Tirate al mento con bilanciere (Upright Row)",
+          "serie": 3,
+          "reps": "8",
+          "recupero": 90,
+          "video": "https://www.youtube.com/watch?v=um3VLfkjdFU",
+          "note": "1 min 30 sec recupero."
+        },
+        {
+          "id": "bb_deadlift",
+          "nome": "Stacco da terra con bilanciere (BB Deadlift)",
+          "serie": 4,
+          "reps": "5",
+          "recupero": 120,
+          "video": "https://www.youtube.com/watch?v=op9kVnSso6Q",
+          "note": "Fondamentale. 2 min recupero."
+        },
+        {
+          "id": "weighted_sit_ups",
+          "nome": "Sit-up con sovraccarico (Weighted Sit-Ups)",
+          "serie": 3,
+          "reps": "15",
+          "recupero": 90,
+          "video": "https://www.youtube.com/watch?v=1fbU_MkV7NE",
+          "note": "1 min 30 sec recupero."
+        },
+        {
+          "id": "ez_bar_bicep_curls",
+          "nome": "Curl con bilanciere EZ (EZ Bar Bicep Curls)",
+          "serie": 3,
+          "reps": "10",
+          "recupero": 90,
+          "video": "https://www.youtube.com/watch?v=zG2xJ0Q5QtI",
+          "note": "1 min 30 sec recupero."
+        },
+        {
+          "id": "incline_bench_bicep_curls",
+          "nome": "Curl su panca inclinata con manubri (Incline Bench Bicep Curls)",
+          "serie": 3,
+          "reps": "8",
+          "recupero": 90,
+          "video": "https://www.youtube.com/watch?v=soxrZlIl35U",
+          "note": "1 min 30 sec recupero."
+        }
+      ]
+    },
+    {
+      "giorno": "Giorno 3",
+      "etichetta": "Legs — Gambe / Glutei / Core",
+      "esercizi": [
+        {
+          "id": "cardio_legs",
+          "nome": "Cardio (ESCLUSIVAMENTE Jog)",
+          "serie": 1,
+          "reps": "10 min",
+          "recupero": null,
+          "video": null,
+          "note": "Solo tapis roulant, niente cyclette nel giorno gambe"
+        },
+        {
+          "id": "bb_squat",
+          "nome": "Squat con bilanciere (BB Squat)",
+          "serie": 4,
+          "reps": "5",
+          "recupero": 120,
+          "video": null,
+          "note": "Fondamentale. 2 min recupero."
+        },
+        {
+          "id": "hyperextensions",
+          "nome": "Iperestensioni (Hyperextensions)",
+          "serie": 4,
+          "reps": "8",
+          "recupero": 120,
+          "video": null,
+          "note": "2 min recupero."
+        },
+        {
+          "id": "bulgarian_split_squat",
+          "nome": "Affondi bulgari (Bulgarian Split Squat)",
+          "serie": 3,
+          "reps": "10",
+          "recupero": 120,
+          "video": null,
+          "note": "Per gamba. 2 min recupero."
+        },
+        {
+          "id": "gluteus_machine",
+          "nome": "Macchina glutei (Gluteus Machine)",
+          "serie": 3,
+          "reps": "8",
+          "recupero": 90,
+          "video": null,
+          "note": "1 min 30 sec recupero."
+        },
+        {
+          "id": "adductor_machine",
+          "nome": "Macchina adduttori (Adductor Machine)",
+          "serie": 3,
+          "reps": "10",
+          "recupero": 90,
+          "video": null,
+          "note": "1 min 30 sec recupero."
+        },
+        {
+          "id": "abductor_machine",
+          "nome": "Macchina abduttori (Abductor Machine)",
+          "serie": 3,
+          "reps": "10",
+          "recupero": 90,
+          "video": null,
+          "note": "1 min 30 sec recupero."
+        }
+      ]
+    }
+  ]
+}
