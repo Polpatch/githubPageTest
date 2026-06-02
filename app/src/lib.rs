@@ -4,7 +4,6 @@ mod models;
 use components::catalog_panel::CatalogPanel;
 use components::day_tabs::DayTabs;
 use components::exercise_card::ExerciseCard;
-use components::session_history::SessionHistory;
 use gloo_file::callbacks::{read_as_text, FileReader};
 use gloo_file::File as GlooFile;
 use gloo_net::http::Request;
@@ -18,6 +17,46 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
+
+/// Build weight_inputs / reps_inputs maps from a saved-sets list so that
+/// input fields are pre-filled when a session is loaded or resumed.
+fn inputs_from_sets(sets: &[CompletedSet]) -> (HashMap<String, Vec<String>>, HashMap<String, Vec<String>>) {
+    let mut w: HashMap<String, Vec<String>> = HashMap::new();
+    let mut r: HashMap<String, Vec<String>> = HashMap::new();
+    for s in sets {
+        let idx = s.set_number.saturating_sub(1) as usize;
+        let wv = w.entry(s.exercise_id.clone()).or_default();
+        if wv.len() <= idx { wv.resize(idx + 1, String::new()); }
+        wv[idx] = s.peso.map(|p| p.to_string()).unwrap_or_default();
+        let rv = r.entry(s.exercise_id.clone()).or_default();
+        if rv.len() <= idx { rv.resize(idx + 1, String::new()); }
+        rv[idx] = s.reps.clone().unwrap_or_default();
+    }
+    (w, r)
+}
+
+/// Trigger a browser file-download for a JSON string.
+/// The anchor is intentionally NOT appended to the DOM: clicking a detached
+/// element doesn't bubble through Yew's event tree, avoiding the
+/// "closure invoked recursively" wasm-bindgen panic.
+fn trigger_download(filename: &str, content: &str) {
+    let Some(window)   = web_sys::window()  else { return };
+    let Some(document) = window.document()  else { return };
+    let arr  = js_sys::Array::of1(&wasm_bindgen::JsValue::from_str(content));
+    let Ok(blob) = web_sys::Blob::new_with_str_sequence(&arr) else { return };
+    let Ok(url)  = web_sys::Url::create_object_url_with_blob(&blob) else { return };
+    let anchor: web_sys::HtmlAnchorElement = match document
+        .create_element("a").ok()
+        .and_then(|el| el.dyn_into::<web_sys::HtmlAnchorElement>().ok())
+    {
+        Some(a) => a,
+        None    => { let _ = web_sys::Url::revoke_object_url(&url); return }
+    };
+    anchor.set_href(&url);
+    anchor.set_download(filename);
+    anchor.click(); // detached → no DOM bubbling → no Yew re-entrancy
+    let _ = web_sys::Url::revoke_object_url(&url);
+}
 
 #[function_component(App)]
 fn app() -> Html {
@@ -35,10 +74,49 @@ fn app() -> Html {
     let timer_total        = use_state(|| 0u32);
     let timer_handle       = use_mut_ref(|| None::<Interval>);
     let reader_task        = use_mut_ref(|| None::<FileReader>);
+    let import_reader      = use_mut_ref(|| None::<FileReader>);
+    let menu_open       = use_state(|| false);
+    let history_open    = use_state(|| false);
+    let viewing_history = use_state(|| false);
     // ID of the currently active session (empty = no workout loaded)
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
     let resume_candidates: UseStateHandle<Vec<SessionMeta>> = use_state(Vec::new);
+
+    // ── Export / Import ──────────────────────────────────────────────────────
+    let on_export = Callback::from(move |_| {
+        let json     = export_all_data();
+        let filename = format!("allenamento_backup_{}.json", &now_iso()[..10]);
+        trigger_download(&filename, &json);
+    });
+
+    let on_import_file = {
+        let error         = error.clone();
+        let import_reader = import_reader.clone();
+        Callback::from(move |event: web_sys::Event| {
+            let input = event.target()
+                .and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
+            if let Some(input) = input {
+                if let Some(file) = input.files().and_then(|f| f.get(0)) {
+                    let gloo_file = GlooFile::from(file);
+                    let error     = error.clone();
+                    let task = read_as_text(&gloo_file, move |result| match result {
+                        Ok(json) => match import_all_data(&json) {
+                            Ok(()) => {
+                                // Reload the page so the restored data takes effect
+                                if let Some(w) = web_sys::window() {
+                                    let _ = w.location().reload();
+                                }
+                            }
+                            Err(e) => error.set(Some(format!("Errore import: {}", e))),
+                        },
+                        Err(e) => error.set(Some(format!("Errore lettura file: {:?}", e))),
+                    });
+                    *import_reader.borrow_mut() = Some(task);
+                }
+            }
+        })
+    };
 
     // ── Fetch catalog ────────────────────────────────────────────────────────
     let _fetch_catalog = {
@@ -80,40 +158,43 @@ fn app() -> Html {
         ($data:expr,
          $workout:expr, $error:expr,
          $day_index:expr, $selected_exercise:expr,
-         $saved_sets:expr, $current_session_id:expr,
-         $resume_candidates:expr) => {{
+         $saved_sets:expr, $weight_inputs:expr, $reps_inputs:expr,
+         $current_session_id:expr, $resume_candidates:expr) => {{
             let data: Workout = $data;
             upsert_schedule(&data);
-            // Check open sessions only for day 0 (the landing day)
             let day0_label = data.giorni.get(0).map(|d| d.giorno.as_str()).unwrap_or("");
             let open = open_sessions_for_day(&data.id, day0_label);
             match open.len() {
                 0 => {
-                    // No open session — start fresh, session created lazily on first set
                     $day_index.set(0);
                     $selected_exercise.set(0);
                     $saved_sets.set(vec![]);
+                    $weight_inputs.set(HashMap::new());
+                    $reps_inputs.set(HashMap::new());
                     $current_session_id.set(String::new());
                     $workout.set(Some(data));
                     $error.set(None);
                 }
                 1 => {
-                    // Auto-resume the single open session
                     let day_idx = data.giorni.iter()
                         .position(|d| d.giorno == open[0].day)
                         .unwrap_or(0);
                     let (sid, sets, active_ex) = find_open_session(&data.id, &open[0].day)
                         .unwrap_or((String::new(), vec![], 0));
+                    let (wi, ri) = inputs_from_sets(&sets);
                     $day_index.set(day_idx);
                     $selected_exercise.set(active_ex);
                     $saved_sets.set(sets);
+                    $weight_inputs.set(wi);
+                    $reps_inputs.set(ri);
                     $current_session_id.set(sid);
                     $workout.set(Some(data));
                     $error.set(None);
                 }
                 _ => {
-                    // Multiple open sessions for this day — show dialog
                     $day_index.set(0);
+                    $weight_inputs.set(HashMap::new());
+                    $reps_inputs.set(HashMap::new());
                     $resume_candidates.set(open);
                     $workout.set(Some(data));
                     $error.set(None);
@@ -129,6 +210,8 @@ fn app() -> Html {
         let day_index          = day_index.clone();
         let selected_exercise  = selected_exercise.clone();
         let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
         let resume_candidates  = resume_candidates.clone();
         let reader_task        = reader_task.clone();
@@ -142,6 +225,8 @@ fn app() -> Html {
                     let day_index          = day_index.clone();
                     let selected_exercise  = selected_exercise.clone();
                     let saved_sets         = saved_sets.clone();
+                    let weight_inputs      = weight_inputs.clone();
+                    let reps_inputs        = reps_inputs.clone();
                     let current_session_id = current_session_id.clone();
                     let resume_candidates  = resume_candidates.clone();
                     let task = read_as_text(&gloo_file, move |result| match result {
@@ -149,6 +234,7 @@ fn app() -> Html {
                             Ok(data) => open_workout!(
                                 data, workout, error,
                                 day_index, selected_exercise, saved_sets,
+                                weight_inputs, reps_inputs,
                                 current_session_id, resume_candidates
                             ),
                             Err(e) => error.set(Some(format!("Errore JSON: {}", e))),
@@ -168,6 +254,8 @@ fn app() -> Html {
         let day_index          = day_index.clone();
         let selected_exercise  = selected_exercise.clone();
         let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
         let resume_candidates  = resume_candidates.clone();
         Callback::from(move |entry: CatalogEntry| {
@@ -176,6 +264,8 @@ fn app() -> Html {
             let day_index          = day_index.clone();
             let selected_exercise  = selected_exercise.clone();
             let saved_sets         = saved_sets.clone();
+            let weight_inputs      = weight_inputs.clone();
+            let reps_inputs        = reps_inputs.clone();
             let current_session_id = current_session_id.clone();
             let resume_candidates  = resume_candidates.clone();
             let file_path = entry.file.clone();
@@ -187,6 +277,7 @@ fn app() -> Html {
                                 Ok(data) => open_workout!(
                                     data, workout, error,
                                     day_index, selected_exercise, saved_sets,
+                                    weight_inputs, reps_inputs,
                                     current_session_id, resume_candidates
                                 ),
                                 Err(e) => error.set(Some(format!("Errore JSON: {}", e))),
@@ -212,6 +303,8 @@ fn app() -> Html {
         let day_index          = day_index.clone();
         let selected_exercise  = selected_exercise.clone();
         let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
         let resume_candidates  = resume_candidates.clone();
         Callback::from(move |idx: usize| {
@@ -221,22 +314,27 @@ fn app() -> Html {
                     let open = open_sessions_for_day(&w.id, &day.giorno);
                     match open.len() {
                         0 => {
-                            // No session yet — lazy creation on first set
                             saved_sets.set(vec![]);
+                            weight_inputs.set(HashMap::new());
+                            reps_inputs.set(HashMap::new());
                             current_session_id.set(String::new());
                             selected_exercise.set(0);
                         }
                         1 => {
                             let (sid, sets, active_ex) = find_open_session(&w.id, &day.giorno)
                                 .unwrap_or((String::new(), vec![], 0));
+                            let (wi, ri) = inputs_from_sets(&sets);
                             saved_sets.set(sets);
+                            weight_inputs.set(wi);
+                            reps_inputs.set(ri);
                             current_session_id.set(sid);
                             selected_exercise.set(active_ex);
                         }
                         _ => {
-                            // Multiple — show dialog for this day
                             resume_candidates.set(open);
                             saved_sets.set(vec![]);
+                            weight_inputs.set(HashMap::new());
+                            reps_inputs.set(HashMap::new());
                             current_session_id.set(String::new());
                         }
                     }
@@ -537,12 +635,13 @@ fn app() -> Html {
                 let day_idx = w.giorni.iter()
                     .position(|d| d.giorno == meta.day)
                     .unwrap_or(0);
+                let (wi, ri) = inputs_from_sets(&sets);
                 day_index.set(day_idx);
                 selected_exercise.set(active_ex);
                 saved_sets.set(sets);
                 current_session_id.set(sid);
-                weight_inputs.set(HashMap::new());
-                reps_inputs.set(HashMap::new());
+                weight_inputs.set(wi);
+                reps_inputs.set(ri);
             }
             resume_candidates.set(vec![]);
         })
@@ -678,10 +777,100 @@ fn app() -> Html {
         })
     };
 
+    // ── History callbacks ────────────────────────────────────────────────────
+    let on_open_history = {
+        let menu_open    = menu_open.clone();
+        let history_open = history_open.clone();
+        Callback::from(move |_| { menu_open.set(false); history_open.set(true); })
+    };
+
+    let on_close_history = {
+        let history_open = history_open.clone();
+        Callback::from(move |_| history_open.set(false))
+    };
+
+    let on_view_session = {
+        let workout            = workout.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
+        let current_session_id = current_session_id.clone();
+        let viewing_history    = viewing_history.clone();
+        let history_open       = history_open.clone();
+        Callback::from(move |session: Session| {
+            if let Some(w) = &*workout {
+                let day_idx = w.giorni.iter()
+                    .position(|d| d.giorno == session.day)
+                    .unwrap_or(0);
+                day_index.set(day_idx);
+            }
+            let (wi, ri) = inputs_from_sets(&session.sets);
+            selected_exercise.set(session.active_exercise);
+            saved_sets.set(session.sets.clone());
+            weight_inputs.set(wi);
+            reps_inputs.set(ri);
+            current_session_id.set(session.id.clone());
+            viewing_history.set(true);
+            history_open.set(false);
+        })
+    };
+
+    let on_exit_history = {
+        let workout            = workout.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
+        let current_session_id = current_session_id.clone();
+        let viewing_history    = viewing_history.clone();
+        Callback::from(move |_| {
+            if let Some(w) = &*workout {
+                if let Some(day) = w.giorni.get(*day_index) {
+                    match find_open_session(&w.id, &day.giorno) {
+                        Some((sid, sets, active_ex)) => {
+                            let (wi, ri) = inputs_from_sets(&sets);
+                            saved_sets.set(sets);
+                            weight_inputs.set(wi);
+                            reps_inputs.set(ri);
+                            current_session_id.set(sid);
+                            selected_exercise.set(active_ex);
+                        }
+                        None => {
+                            saved_sets.set(vec![]);
+                            weight_inputs.set(HashMap::new());
+                            reps_inputs.set(HashMap::new());
+                            current_session_id.set(String::new());
+                            selected_exercise.set(0);
+                        }
+                    }
+                }
+            }
+            viewing_history.set(false);
+        })
+    };
+
+    // Pre-compute history sessions (needed in render, can't use let inside html!)
+    let history_sessions: Vec<Session> = if *history_open {
+        if let Some(w) = &*workout {
+            if let Some(day) = w.giorni.get(*day_index) {
+                terminated_sessions_for_day(&w.id, &day.giorno)
+            } else { vec![] }
+        } else { vec![] }
+    } else { vec![] };
+
     // ── Render ───────────────────────────────────────────────────────────────
+    let open_menu  = { let m = menu_open.clone(); Callback::from(move |_| m.set(true))  };
+    let close_menu = { let m = menu_open.clone(); Callback::from(move |_| m.set(false)) };
+
     html! {
         <div class="app-shell">
             <header class="app-header">
+                <button class="burger-btn" onclick={open_menu} title="Menu">
+                    <span></span><span></span><span></span>
+                </button>
                 <div>
                     <h1>{"Allenamento WASM"}</h1>
                     <p>{"Carica una scheda JSON e segui l'allenamento in tempo reale."}</p>
@@ -739,6 +928,14 @@ fn app() -> Html {
                         let day = workout_data.giorni.get(*day_index);
                         html! {
                             <div class="workout-details">
+                                if *viewing_history {
+                                    <div class="history-banner">
+                                        <span>{"Stai visualizzando uno storico"}</span>
+                                        <button onclick={on_exit_history.clone()}>
+                                            {"← Torna all'allenamento"}
+                                        </button>
+                                    </div>
+                                }
                                 <section class="workout-meta">
                                     <div class="meta-label">{ format!("Scheda: {}", workout_data.nome) }</div>
                                     if let Some(desc) = &workout_data.descrizione {
@@ -782,11 +979,12 @@ fn app() -> Html {
                                                             timer_running={*timer_running}
                                                             timer_left={*timer_left}
                                                             timer_total={*timer_total}
+                                                            history_mode={*viewing_history}
+                                                            workout_id={workout_data.id.clone()}
                                                         />
                                                     }
                                                 }) }
                                             </section>
-                                            <SessionHistory saved_sets={(*saved_sets).clone()} />
                                             <div class="workout-footer">
                                                 <button class="footer-btn footer-btn--save"
                                                     onclick={on_save_and_finish.clone()}>
@@ -820,6 +1018,81 @@ fn app() -> Html {
                     <div class="error-banner">{ error_msg }</div>
                 }
             </main>
+
+            // ── Burger menu modal ────────────────────────────────────────────
+            if *menu_open {
+                <div class="menu-overlay" onclick={close_menu.clone()}>
+                    <div class="menu-modal"
+                        onclick={Callback::from(|e: MouseEvent| e.stop_propagation())}>
+                        <div class="menu-modal-header">
+                            <span class="menu-modal-title">{"Menu"}</span>
+                            <button class="menu-close-btn" onclick={close_menu}>{"✕"}</button>
+                        </div>
+                        if workout.is_some() {
+                            <>
+                                <div class="menu-section-title">{"Sessione"}</div>
+                                <button class="menu-action-btn"
+                                    onclick={on_open_history.clone()}>
+                                    <span class="menu-action-icon">{"◷"}</span>
+                                    {"Storico sessioni"}
+                                </button>
+                            </>
+                        }
+                        <div class="menu-section-title">{"Portabilità dati"}</div>
+                        <button class="menu-action-btn" onclick={on_export}>
+                            <span class="menu-action-icon">{"↓"}</span>
+                            {"Esporta backup"}
+                        </button>
+                        <label class="menu-action-btn menu-action-btn--file">
+                            <span class="menu-action-icon">{"↑"}</span>
+                            <span>{"Importa backup"}</span>
+                            <input type="file" accept=".json" onchange={on_import_file} />
+                        </label>
+                        <p class="menu-hint">
+                            {"Esporta tutte le schede e sessioni. L'importazione sovrascrive i dati esistenti."}
+                        </p>
+                    </div>
+                </div>
+            }
+
+            // ── History sessions modal ────────────────────────────────────────
+            if *history_open {
+                <div class="menu-overlay" onclick={on_close_history.clone()}>
+                    <div class="menu-modal"
+                        onclick={Callback::from(|e: MouseEvent| e.stop_propagation())}>
+                        <div class="menu-modal-header">
+                            <span class="menu-modal-title">{"Storico sessioni"}</span>
+                            <button class="menu-close-btn"
+                                onclick={on_close_history}>{"✕"}</button>
+                        </div>
+                        { if history_sessions.is_empty() {
+                            html! { <p class="menu-hint">{"Nessuna sessione terminata per questo giorno."}</p> }
+                        } else {
+                            html! {
+                                <div class="history-session-list">
+                                    { for history_sessions.into_iter().map(|session| {
+                                        let on_view = on_view_session.clone();
+                                        let date = session.started
+                                            .get(..16).unwrap_or(&session.started)
+                                            .replace('T', " ");
+                                        let count = session.sets.len();
+                                        let s = session.clone();
+                                        html! {
+                                            <button class="history-session-item"
+                                                onclick={Callback::from(move |_| on_view.emit(s.clone()))}>
+                                                <div class="history-session-date">{ date }</div>
+                                                <div class="history-session-meta">
+                                                    { format!("{} serie registrate", count) }
+                                                </div>
+                                            </button>
+                                        }
+                                    }) }
+                                </div>
+                            }
+                        } }
+                    </div>
+                </div>
+            }
         </div>
     }
 }

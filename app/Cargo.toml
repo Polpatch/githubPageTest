@@ -16,6 +16,10 @@ gloo-file = "0.4"
 gloo-timers = "0.2"
 gloo-net = "0.7"
 js-sys = "0.3"
-web-sys = { version = "0.3", features = ["Touch", "TouchEvent", "TouchList", "Element"] }
+web-sys = { version = "0.3", features = [
+  "Touch", "TouchEvent", "TouchList", "Element",
+  "Blob", "Url", "HtmlAnchorElement",
+  "Document", "Window", "Location",
+] }
 wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1"

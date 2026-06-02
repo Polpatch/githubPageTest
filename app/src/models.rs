@@ -283,3 +283,88 @@ pub fn delete_session(workout_id: &str, session_id: &str) {
     index.retain(|m| m.id != session_id);
     save_sessions_index(&index);
 }
+
+// ── Weight history ────────────────────────────────────────────────────────────
+
+/// One data point for the weight-progression chart.
+#[derive(Clone)]
+pub struct WeightPoint {
+    pub date:       String,  // "YYYY-MM-DD"
+    pub max_weight: f32,
+}
+
+/// Collect the max weight used per terminated session for an exercise.
+/// Searches all sessions for the workout, regardless of day.
+pub fn weight_history_for_exercise(workout_id: &str, exercise_id: &str) -> Vec<WeightPoint> {
+    let mut points: Vec<WeightPoint> = load_sessions(workout_id)
+        .into_iter()
+        .filter(|s| s.done)
+        .filter_map(|s| {
+            let max_w = s.sets.iter()
+                .filter(|set| set.exercise_id == exercise_id)
+                .filter_map(|set| set.peso)
+                .filter(|w| *w > 0.0)
+                .fold(f32::NEG_INFINITY, f32::max);
+            if max_w == f32::NEG_INFINITY { return None; }
+            let date = s.started.get(..10).unwrap_or(&s.started).to_string();
+            Some(WeightPoint { date, max_weight: max_w })
+        })
+        .collect();
+    points.sort_by(|a, b| a.date.cmp(&b.date));
+    points
+}
+
+/// All terminated sessions for a workout+day, newest first.
+pub fn terminated_sessions_for_day(workout_id: &str, day_label: &str) -> Vec<Session> {
+    let mut sessions: Vec<Session> = load_sessions(workout_id)
+        .into_iter()
+        .filter(|s| s.day == day_label && s.done)
+        .collect();
+    sessions.sort_by(|a, b| b.updated.cmp(&a.updated));
+    sessions
+}
+
+// ── Export / Import ───────────────────────────────────────────────────────────
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExportData {
+    pub version: u32,
+    pub exported_at: String,
+    pub schedules: Vec<Workout>,
+    pub sessions_index: Vec<SessionMeta>,
+    pub sessions: std::collections::HashMap<String, Vec<Session>>,
+}
+
+/// Serialize all localStorage data into a pretty-printed JSON string.
+pub fn export_all_data() -> String {
+    let schedules      = load_schedules();
+    let sessions_index = load_sessions_index();
+    // Collect sessions for every known workout_id
+    let ids: std::collections::HashSet<String> = sessions_index
+        .iter().map(|m| m.workout_id.clone()).collect();
+    let mut sessions = std::collections::HashMap::new();
+    for id in ids {
+        let s = load_sessions(&id);
+        if !s.is_empty() { sessions.insert(id, s); }
+    }
+    let data = ExportData {
+        version: 1,
+        exported_at: now_iso(),
+        schedules,
+        sessions_index,
+        sessions,
+    };
+    serde_json::to_string_pretty(&data).unwrap_or_default()
+}
+
+/// Parse an export file and overwrite all localStorage data.
+pub fn import_all_data(json: &str) -> Result<(), String> {
+    let data: ExportData = serde_json::from_str(json)
+        .map_err(|e| format!("Formato non riconosciuto: {}", e))?;
+    save_schedules(&data.schedules);
+    save_sessions_index(&data.sessions_index);
+    for (workout_id, s) in &data.sessions {
+        save_sessions(workout_id, s);
+    }
+    Ok(())
+}
