@@ -22,6 +22,7 @@ pub struct ExerciseCardProps {
     pub on_weight_change: Callback<(String, usize, String)>,
     pub on_reps_change: Callback<(String, usize, String)>,
     pub on_start_timer: Callback<()>,
+    pub on_cancel_timer: Callback<()>,
     pub timer_running: bool,
     pub timer_left: u32,
     pub timer_total: u32,
@@ -355,18 +356,43 @@ pub fn exercise_card(props: &ExerciseCardProps) -> Html {
                     </div>
 
                     <div class="action-row">
+                        // "Registra / Aggiorna" — if timer is running and this is a NEW
+                        // registration (not an update), cancel the timer immediately.
                         <button class="primary-button" onclick={{
-                            let save = props.on_save_set.clone();
-                            Callback::from(move |_: MouseEvent| save.emit(clamped))
+                            let save          = props.on_save_set.clone();
+                            let cancel_timer  = props.on_cancel_timer.clone();
+                            let asc           = active_set.clone();
+                            let dot_done_snap = dot_done.clone();
+                            let was_completed = completed;
+                            let timer_active  = props.timer_running;
+                            Callback::from(move |_: MouseEvent| {
+                                save.emit(clamped);
+                                if !was_completed {
+                                    if timer_active { cancel_timer.emit(()); }
+                                    let next = (1..n)
+                                        .map(|off| (clamped + off) % n)
+                                        .find(|&i| !dot_done_snap.get(i).copied().unwrap_or(false));
+                                    if let Some(idx) = next { asc.set(idx); }
+                                }
+                            })
                         }}>
                             { if completed { "Aggiorna serie" } else { "Registra serie" } }
                         </button>
-                        if exercise.recupero.is_some() {
+                        // Timer toggle: visible only when the set is incomplete,
+                        // or when the timer is already running/paused.
+                        if exercise.recupero.is_some()
+                            && (!completed || props.timer_running || props.timer_left > 0) {
                             <button class="secondary-button" onclick={{
                                 let cb = props.on_start_timer.clone();
                                 Callback::from(move |_: MouseEvent| cb.emit(()))
                             }}>
-                                { if props.timer_running { "Timer in corso" } else { "Avvia recupero" } }
+                                { if props.timer_running {
+                                    "Pausa"
+                                } else if props.timer_left > 0 {
+                                    "Riprendi recupero"
+                                } else {
+                                    "Avvia recupero"
+                                } }
                             </button>
                         }
                     </div>

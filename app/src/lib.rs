@@ -8,9 +8,7 @@ use components::session_history::SessionHistory;
 use gloo_file::callbacks::{read_as_text, FileReader};
 use gloo_file::File as GlooFile;
 use gloo_net::http::Request;
-use gloo_storage::{LocalStorage, Storage};
 use gloo_timers::callback::Interval;
-use js_sys::Date;
 use models::*;
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
@@ -23,25 +21,28 @@ use yew::prelude::*;
 
 #[function_component(App)]
 fn app() -> Html {
-    let workout = use_state(|| None::<Workout>);
-    let error = use_state(|| None::<String>);
-    let day_index = use_state(|| 0usize);
-    let selected_exercise = use_state(|| 0usize);
-    let weight_inputs = use_state(|| HashMap::<String, Vec<String>>::new());
-    let reps_inputs = use_state(|| HashMap::<String, Vec<String>>::new());
-    let saved_sets = use_state(|| Vec::<CompletedSet>::new());
-    let catalog = use_state(|| Vec::<CatalogEntry>::new());
-    let catalog_loading = use_state(|| true);
-    let timer_running = use_state(|| false);
-    let timer_left = use_state(|| 0u32);
-    let timer_total = use_state(|| 0u32);
-    let timer_handle = use_mut_ref(|| None::<Interval>);
-    let reader_task = use_mut_ref(|| None::<FileReader>);
+    let workout            = use_state(|| None::<Workout>);
+    let error              = use_state(|| None::<String>);
+    let day_index          = use_state(|| 0usize);
+    let selected_exercise  = use_state(|| 0usize);
+    let weight_inputs      = use_state(|| HashMap::<String, Vec<String>>::new());
+    let reps_inputs        = use_state(|| HashMap::<String, Vec<String>>::new());
+    let saved_sets         = use_state(|| Vec::<CompletedSet>::new());
+    let catalog            = use_state(|| Vec::<CatalogEntry>::new());
+    let catalog_loading    = use_state(|| true);
+    let timer_running      = use_state(|| false);
+    let timer_left         = use_state(|| 0u32);
+    let timer_total        = use_state(|| 0u32);
+    let timer_handle       = use_mut_ref(|| None::<Interval>);
+    let reader_task        = use_mut_ref(|| None::<FileReader>);
+    // ID of the currently active session (empty = no workout loaded)
+    let current_session_id = use_state(|| String::new());
 
+    // ── Fetch catalog ────────────────────────────────────────────────────────
     let _fetch_catalog = {
         let catalog = catalog.clone();
-        let error = error.clone();
-        let catalog_loading = catalog_loading.clone();
+        let error   = error.clone();
+        let loading = catalog_loading.clone();
         use_effect_with_deps(
             move |_| {
                 spawn_local(async move {
@@ -50,16 +51,16 @@ fn app() -> Html {
                             if resp.ok() {
                                 match resp.json::<Vec<CatalogEntry>>().await {
                                     Ok(list) => catalog.set(list),
-                                    Err(err) => error.set(Some(format!("Errore catalogo: {:?}", err))),
+                                    Err(e)   => error.set(Some(format!("Errore catalogo: {:?}", e))),
                                 }
                             } else {
                                 error.set(Some(format!("Errore caricamento catalogo: {}", resp.status())));
                             }
-                            catalog_loading.set(false);
+                            loading.set(false);
                         }
-                        Err(err) => {
-                            error.set(Some(format!("Errore caricamento catalogo: {:?}", err)));
-                            catalog_loading.set(false);
+                        Err(e) => {
+                            error.set(Some(format!("Errore caricamento catalogo: {:?}", e)));
+                            loading.set(false);
                         }
                     }
                 });
@@ -69,39 +70,52 @@ fn app() -> Html {
         )
     };
 
+    // ── Shared workout-open logic ────────────────────────────────────────────
+    // Called after a Workout is successfully parsed (file or catalog).
+    // Saves/updates the schedule, finds or creates the session for day 0,
+    // and updates all relevant state handles.
+    macro_rules! open_workout {
+        ($data:expr,
+         $workout:expr, $error:expr, $selected_exercise:expr,
+         $saved_sets:expr, $current_session_id:expr) => {{
+            let data: Workout = $data;
+            upsert_schedule(&data);
+            let (sid, sets, active_ex) = find_or_create_session(&data, 0);
+            $workout.set(Some(data));
+            $error.set(None);
+            $selected_exercise.set(active_ex);
+            $saved_sets.set(sets);
+            $current_session_id.set(sid);
+        }};
+    }
+
+    // ── File upload ──────────────────────────────────────────────────────────
     let on_file_change = {
-        let workout = workout.clone();
-        let error = error.clone();
-        let selected_exercise = selected_exercise.clone();
-        let saved_sets = saved_sets.clone();
-        let reader_task = reader_task.clone();
+        let workout            = workout.clone();
+        let error              = error.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let current_session_id = current_session_id.clone();
+        let reader_task        = reader_task.clone();
         Callback::from(move |event: web_sys::Event| {
-            let input = event
-                .target()
-                .and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
+            let input = event.target().and_then(|t| t.dyn_into::<HtmlInputElement>().ok());
             if let Some(input) = input {
-                if let Some(file) = input.files().and_then(|files| files.get(0)) {
-                    let gloo_file = GlooFile::from(file);
-                    let workout = workout.clone();
-                    let error = error.clone();
-                    let selected_exercise = selected_exercise.clone();
-                    let saved_sets = saved_sets.clone();
+                if let Some(file) = input.files().and_then(|f| f.get(0)) {
+                    let gloo_file          = GlooFile::from(file);
+                    let workout            = workout.clone();
+                    let error              = error.clone();
+                    let selected_exercise  = selected_exercise.clone();
+                    let saved_sets         = saved_sets.clone();
+                    let current_session_id = current_session_id.clone();
                     let task = read_as_text(&gloo_file, move |result| match result {
                         Ok(text) => match serde_json::from_str::<Workout>(&text) {
-                            Ok(data) => {
-                                let saved = data
-                                    .giorni
-                                    .get(0)
-                                    .map(|day| load_session(&session_key(&data.id, &day.giorno)))
-                                    .unwrap_or_else(Vec::new);
-                                workout.set(Some(data));
-                                error.set(None);
-                                selected_exercise.set(0);
-                                saved_sets.set(saved);
-                            }
-                            Err(err) => error.set(Some(format!("Errore JSON: {}", err))),
+                            Ok(data) => open_workout!(
+                                data, workout, error,
+                                selected_exercise, saved_sets, current_session_id
+                            ),
+                            Err(e) => error.set(Some(format!("Errore JSON: {}", e))),
                         },
-                        Err(err) => error.set(Some(format!("Errore lettura file: {:?}", err))),
+                        Err(e) => error.set(Some(format!("Errore lettura file: {:?}", e))),
                     });
                     *reader_task.borrow_mut() = Some(task);
                 }
@@ -109,75 +123,73 @@ fn app() -> Html {
         })
     };
 
+    // ── Catalog entry ────────────────────────────────────────────────────────
     let on_load_catalog_entry = {
-        let workout = workout.clone();
-        let error = error.clone();
-        let selected_exercise = selected_exercise.clone();
-        let saved_sets = saved_sets.clone();
+        let workout            = workout.clone();
+        let error              = error.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let current_session_id = current_session_id.clone();
         Callback::from(move |entry: CatalogEntry| {
-            let workout = workout.clone();
-            let error = error.clone();
-            let selected_exercise = selected_exercise.clone();
-            let saved_sets = saved_sets.clone();
+            let workout            = workout.clone();
+            let error              = error.clone();
+            let selected_exercise  = selected_exercise.clone();
+            let saved_sets         = saved_sets.clone();
+            let current_session_id = current_session_id.clone();
             let file_path = entry.file.clone();
             spawn_local(async move {
                 match Request::get(&file_path).send().await {
-                    Ok(resp) => {
-                        if resp.ok() {
-                            match resp.text().await {
-                                Ok(text) => match serde_json::from_str::<Workout>(&text) {
-                                    Ok(data) => {
-                                        let saved = data
-                                            .giorni
-                                            .get(0)
-                                            .map(|day| load_session(&session_key(&data.id, &day.giorno)))
-                                            .unwrap_or_else(Vec::new);
-                                        workout.set(Some(data));
-                                        error.set(None);
-                                        selected_exercise.set(0);
-                                        saved_sets.set(saved);
-                                    }
-                                    Err(err) => error.set(Some(format!("Errore JSON: {}", err))),
-                                },
-                                Err(err) => error.set(Some(format!("Errore caricamento file: {:?}", err))),
-                            }
-                        } else {
-                            error.set(Some(format!("Errore caricamento file: {}", resp.status())));
+                    Ok(resp) if resp.ok() => {
+                        match resp.text().await {
+                            Ok(text) => match serde_json::from_str::<Workout>(&text) {
+                                Ok(data) => open_workout!(
+                                    data, workout, error,
+                                    selected_exercise, saved_sets, current_session_id
+                                ),
+                                Err(e) => error.set(Some(format!("Errore JSON: {}", e))),
+                            },
+                            Err(e) => error.set(Some(format!("Errore caricamento file: {:?}", e))),
                         }
                     }
-                    Err(err) => error.set(Some(format!("Errore caricamento file: {:?}", err))),
+                    Ok(resp) => error.set(Some(format!("Errore caricamento file: {}", resp.status()))),
+                    Err(e)   => error.set(Some(format!("Errore caricamento file: {:?}", e))),
                 }
             });
         })
     };
 
+    // ── Exercise / day selection ─────────────────────────────────────────────
     let on_select_exercise = {
         let selected_exercise = selected_exercise.clone();
         Callback::from(move |idx: usize| selected_exercise.set(idx))
     };
 
     let on_change_day = {
-        let workout = workout.clone();
-        let day_index = day_index.clone();
-        let saved_sets = saved_sets.clone();
+        let workout            = workout.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let current_session_id = current_session_id.clone();
         Callback::from(move |idx: usize| {
             day_index.set(idx);
-            if let Some(workout) = &*workout {
-                if let Some(day) = workout.giorni.get(idx) {
-                    saved_sets.set(load_session(&session_key(&workout.id, &day.giorno)));
+            if let Some(w) = &*workout {
+                if w.giorni.get(idx).is_some() {
+                    let (sid, sets, active_ex) = find_or_create_session(w, idx);
+                    saved_sets.set(sets);
+                    current_session_id.set(sid);
+                    selected_exercise.set(active_ex);
                 }
             }
         })
     };
 
+    // ── Input helpers ────────────────────────────────────────────────────────
     let on_weight_change = {
         let weight_inputs = weight_inputs.clone();
         Callback::from(move |(exercise_id, idx, value): (String, usize, String)| {
             let mut map = (*weight_inputs).clone();
             let entry = map.entry(exercise_id).or_insert_with(Vec::new);
-            if entry.len() <= idx {
-                entry.resize(idx + 1, String::new());
-            }
+            if entry.len() <= idx { entry.resize(idx + 1, String::new()); }
             entry[idx] = value;
             weight_inputs.set(map);
         })
@@ -188,21 +200,21 @@ fn app() -> Html {
         Callback::from(move |(exercise_id, idx, value): (String, usize, String)| {
             let mut map = (*reps_inputs).clone();
             let entry = map.entry(exercise_id).or_insert_with(Vec::new);
-            if entry.len() <= idx {
-                entry.resize(idx + 1, String::new());
-            }
+            if entry.len() <= idx { entry.resize(idx + 1, String::new()); }
             entry[idx] = value;
             reps_inputs.set(map);
         })
     };
 
+    // ── Save set ─────────────────────────────────────────────────────────────
     let on_save_set = {
-        let workout = workout.clone();
-        let day_index = day_index.clone();
-        let selected_exercise = selected_exercise.clone();
-        let weight_inputs = weight_inputs.clone();
-        let reps_inputs = reps_inputs.clone();
-        let saved_sets = saved_sets.clone();
+        let workout            = workout.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
+        let saved_sets         = saved_sets.clone();
+        let current_session_id = current_session_id.clone();
         Callback::from(move |set_index: usize| {
             if let Some(workout) = &*workout {
                 if let Some(day) = workout.giorni.get(*day_index) {
@@ -216,25 +228,56 @@ fn app() -> Html {
                             .and_then(|v| v.get(set_index))
                             .cloned();
                         let set_number = (set_index + 1) as u32;
-                        let timestamp = Date::new_0().to_iso_string().as_string().unwrap_or_default();
+                        let timestamp  = now_iso();
                         let mut list = (*saved_sets).clone();
-                        if let Some(existing) = list.iter_mut().find(|s| s.exercise_id == exercise.id && s.set_number == set_number) {
-                            existing.peso = weight;
-                            existing.reps = reps.clone();
-                            existing.timestamp = timestamp;
+                        if let Some(e) = list.iter_mut().find(|s| {
+                            s.exercise_id == exercise.id && s.set_number == set_number
+                        }) {
+                            e.peso      = weight;
+                            e.reps      = reps.clone();
+                            e.timestamp = timestamp;
                         } else {
                             list.push(CompletedSet {
                                 exercise_id: exercise.id.clone(),
-                                nome: exercise.nome.clone(),
+                                nome:        exercise.nome.clone(),
                                 set_number,
-                                peso: weight,
+                                peso:        weight,
                                 reps,
                                 timestamp,
                             });
                         }
-                        list.sort_by(|a, b| a.set_number.cmp(&b.set_number));
-                        let key = session_key(&workout.id, &day.giorno);
-                        let _ = LocalStorage::set(&key, &list);
+                        list.sort_by_key(|s| s.set_number);
+
+                        // Auto-advance: if this exercise is now complete, select
+                        // the next one that still has incomplete sets.
+                        let ex_done = list.iter()
+                            .filter(|s| s.exercise_id == exercise.id)
+                            .count() >= exercise.serie as usize;
+                        let current_idx = *selected_exercise;
+                        let next_active = if ex_done {
+                            let n = day.esercizi.len();
+                            let next = (1..n)
+                                .map(|off| (current_idx + off) % n)
+                                .find(|&i| {
+                                    let ex = &day.esercizi[i];
+                                    list.iter().filter(|s| s.exercise_id == ex.id).count()
+                                        < ex.serie as usize
+                                });
+                            if let Some(next_idx) = next {
+                                selected_exercise.set(next_idx);
+                                next_idx
+                            } else {
+                                current_idx
+                            }
+                        } else {
+                            current_idx
+                        };
+
+                        let sid = (*current_session_id).clone();
+                        if !sid.is_empty() {
+                            let total = total_day_sets(workout, &day.giorno);
+                            update_session_sets(&workout.id, &sid, &list, next_active, total);
+                        }
                         saved_sets.set(list);
                     }
                 }
@@ -242,85 +285,142 @@ fn app() -> Html {
         })
     };
 
-    let on_start_timer = {
-        let workout_state = workout.clone();
-        let day_index = day_index.clone();
-        let selected_exercise = selected_exercise.clone();
+    // ── Cancel timer (called by ExerciseCard when set is manually registered) ──
+    let on_cancel_timer = {
+        let timer_handle  = timer_handle.clone();
         let timer_running = timer_running.clone();
-        let timer_left = timer_left.clone();
-        let timer_total = timer_total.clone();
-        let timer_handle = timer_handle.clone();
-        let saved_sets = saved_sets.clone();
-        let weight_inputs = weight_inputs.clone();
-        let reps_inputs = reps_inputs.clone();
+        let timer_left    = timer_left.clone();
+        Callback::from(move |_: ()| {
+            timer_handle.borrow_mut().take();
+            timer_running.set(false);
+            timer_left.set(0);
+        })
+    };
+
+    // ── Recovery timer (toggle: start / pause / resume) ──────────────────────
+    let on_start_timer = {
+        let workout_state      = workout.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let timer_running      = timer_running.clone();
+        let timer_left         = timer_left.clone();
+        let timer_total        = timer_total.clone();
+        let timer_handle       = timer_handle.clone();
+        let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
+        let current_session_id = current_session_id.clone();
         Callback::from(move |_: ()| {
             if *timer_running {
+                // Pause: stop the interval but keep timer_left intact
+                timer_handle.borrow_mut().take();
+                timer_running.set(false);
                 return;
             }
             if let Some(workout) = &*workout_state {
                 if let Some(day) = workout.giorni.get(*day_index) {
                     if let Some(exercise) = day.esercizi.get(*selected_exercise) {
-                        let duration = exercise.recupero.unwrap_or(90);
-                        timer_left.set(duration);
-                        timer_total.set(duration);
+                        // Resume from pause or start fresh
+                        let start_from = if *timer_left > 0 {
+                            *timer_left  // resume
+                        } else {
+                            let dur = exercise.recupero.unwrap_or(90);
+                            timer_total.set(dur);  // only reset total on fresh start
+                            dur
+                        };
+                        timer_left.set(start_from);
                         timer_handle.borrow_mut().take();
 
-                        let timer_left_state = timer_left.clone();
-                        let timer_running_inner = timer_running.clone();
-                        let timer_handle_inner = timer_handle.clone();
-                        let workout_for_timer = workout_state.clone();
-                        let day_index_for_timer = day_index.clone();
-                        let selected_exercise_for_timer = selected_exercise.clone();
-                        let saved_sets_for_timer = saved_sets.clone();
-                        let weight_inputs_for_timer = weight_inputs.clone();
-                        let reps_inputs_for_timer = reps_inputs.clone();
-                        let remaining_counter = Rc::new(Cell::new(duration));
-                        let remaining_counter_clone = remaining_counter.clone();
+                        let timer_left_state           = timer_left.clone();
+                        let timer_running_inner        = timer_running.clone();
+                        let timer_handle_inner         = timer_handle.clone();
+                        let workout_for_timer          = workout_state.clone();
+                        let day_index_for_timer        = day_index.clone();
+                        let selected_ex_for_timer      = selected_exercise.clone();
+                        let saved_sets_for_timer       = saved_sets.clone();
+                        let weight_inputs_for_timer    = weight_inputs.clone();
+                        let reps_inputs_for_timer      = reps_inputs.clone();
+                        let session_id_for_timer       = current_session_id.clone();
+                        let remaining = Rc::new(Cell::new(start_from));
+                        let remaining_clone = remaining.clone();
 
                         let handle = Interval::new(1000, move || {
-                            let next = remaining_counter_clone.get().saturating_sub(1);
-                            remaining_counter_clone.set(next);
+                            let next = remaining_clone.get().saturating_sub(1);
+                            remaining_clone.set(next);
                             timer_left_state.set(next);
 
                             if next == 0 {
                                 timer_running_inner.set(false);
                                 if let Some(workout) = &*workout_for_timer {
                                     if let Some(day) = workout.giorni.get(*day_index_for_timer) {
-                                        if let Some(exercise) = day.esercizi.get(*selected_exercise_for_timer) {
-                                            let existing_numbers: HashSet<u32> = (*saved_sets_for_timer)
+                                        if let Some(exercise) = day.esercizi.get(*selected_ex_for_timer) {
+                                            let existing: HashSet<u32> = (*saved_sets_for_timer)
                                                 .iter()
                                                 .filter(|s| s.exercise_id == exercise.id)
                                                 .map(|s| s.set_number)
                                                 .collect();
                                             let next_set = (1..=exercise.serie)
-                                                .find(|n| !existing_numbers.contains(n))
-                                                .unwrap_or(existing_numbers.len() as u32 + 1);
-                                            let next_index = (next_set - 1) as usize;
+                                                .find(|n| !existing.contains(n))
+                                                .unwrap_or(existing.len() as u32 + 1);
+                                            let next_idx = (next_set - 1) as usize;
                                             let weight = weight_inputs_for_timer
                                                 .get(&exercise.id)
-                                                .and_then(|v| v.get(next_index))
+                                                .and_then(|v| v.get(next_idx))
                                                 .and_then(|v| v.parse::<f32>().ok());
                                             let reps = reps_inputs_for_timer
                                                 .get(&exercise.id)
-                                                .and_then(|v| v.get(next_index))
+                                                .and_then(|v| v.get(next_idx))
                                                 .cloned();
                                             let entry = CompletedSet {
                                                 exercise_id: exercise.id.clone(),
-                                                nome: exercise.nome.clone(),
-                                                set_number: next_set,
-                                                peso: weight,
+                                                nome:        exercise.nome.clone(),
+                                                set_number:  next_set,
+                                                peso:        weight,
                                                 reps,
-                                                timestamp: Date::new_0().to_iso_string().as_string().unwrap_or_default(),
+                                                timestamp:   now_iso(),
                                             };
                                             let mut list = (*saved_sets_for_timer).clone();
-                                            if let Some(existing) = list.iter_mut().find(|s| s.exercise_id == exercise.id && s.set_number == next_set) {
-                                                *existing = entry;
+                                            if let Some(e) = list.iter_mut().find(|s| {
+                                                s.exercise_id == exercise.id && s.set_number == next_set
+                                            }) {
+                                                *e = entry;
                                             } else {
                                                 list.push(entry);
                                             }
-                                            list.sort_by(|a, b| a.set_number.cmp(&b.set_number));
-                                            let key = session_key(&workout.id, &day.giorno);
-                                            let _ = LocalStorage::set(&key, &list);
+                                            list.sort_by_key(|s| s.set_number);
+
+                                            // Auto-advance after timer save
+                                            let ex_done = list.iter()
+                                                .filter(|s| s.exercise_id == exercise.id)
+                                                .count() >= exercise.serie as usize;
+                                            let current_idx = *selected_ex_for_timer;
+                                            let next_active = if ex_done {
+                                                let n = day.esercizi.len();
+                                                let next = (1..n)
+                                                    .map(|off| (current_idx + off) % n)
+                                                    .find(|&i| {
+                                                        let ex = &day.esercizi[i];
+                                                        list.iter().filter(|s| s.exercise_id == ex.id).count()
+                                                            < ex.serie as usize
+                                                    });
+                                                if let Some(next_idx) = next {
+                                                    selected_ex_for_timer.set(next_idx);
+                                                    next_idx
+                                                } else {
+                                                    current_idx
+                                                }
+                                            } else {
+                                                current_idx
+                                            };
+
+                                            let sid = (*session_id_for_timer).clone();
+                                            if !sid.is_empty() {
+                                                let total = total_day_sets(workout, &day.giorno);
+                                                update_session_sets(
+                                                    &workout.id, &sid, &list,
+                                                    next_active, total,
+                                                );
+                                            }
                                             saved_sets_for_timer.set(list);
                                         }
                                     }
@@ -336,16 +436,18 @@ fn app() -> Html {
         })
     };
 
+    // ── Clear workout ────────────────────────────────────────────────────────
     let clear_workout = {
-        let workout = workout.clone();
-        let error = error.clone();
-        let day_index = day_index.clone();
-        let selected_exercise = selected_exercise.clone();
-        let saved_sets = saved_sets.clone();
-        let weight_inputs = weight_inputs.clone();
-        let reps_inputs = reps_inputs.clone();
-        let timer_running = timer_running.clone();
-        let timer_handle = timer_handle.clone();
+        let workout            = workout.clone();
+        let error              = error.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
+        let timer_running      = timer_running.clone();
+        let timer_handle       = timer_handle.clone();
+        let current_session_id = current_session_id.clone();
         Callback::from(move |_| {
             timer_handle.borrow_mut().take();
             timer_running.set(false);
@@ -356,9 +458,11 @@ fn app() -> Html {
             saved_sets.set(Vec::new());
             weight_inputs.set(HashMap::new());
             reps_inputs.set(HashMap::new());
+            current_session_id.set(String::new());
         })
     };
 
+    // ── Render ───────────────────────────────────────────────────────────────
     html! {
         <div class="app-shell">
             <header class="app-header">
@@ -416,6 +520,7 @@ fn app() -> Html {
                                                             on_weight_change={on_weight_change.clone()}
                                                             on_reps_change={on_reps_change.clone()}
                                                             on_start_timer={on_start_timer.clone()}
+                                                            on_cancel_timer={on_cancel_timer.clone()}
                                                             timer_running={*timer_running}
                                                             timer_left={*timer_left}
                                                             timer_total={*timer_total}
