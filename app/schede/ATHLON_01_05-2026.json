@@ -38,7 +38,7 @@
       "etichetta": "Legs Day",
       "esercizi": [
         { "id": "cardio_legs", "nome": "Cardio iniziale", "serie": 1, "reps": "5-10 min", "recupero": null, "video": null, "note": "Tapis roulant o cyclette" },
-        { "id": "squat", "nome": "Squat con bilanciere / Safety Bar", "serie": 4, "reps": "5-6", "recupero": 180, "video": "https://www.youtube.com/watch?v=squat1313", "note": "Back Squat – sotto il parallelo" },
+        { "id": "squat", "nome": "Squat con bilanciere / Safety Bar", "serie": 24, "reps": "5-6", "recupero": 180, "video": "https://www.youtube.com/watch?v=squat1313", "note": "Back Squat – sotto il parallelo" },
         { "id": "leg_press", "nome": "Leg press", "serie": 3, "reps": "10-12", "recupero": 90, "video": "https://www.youtube.com/watch?v=legpress1414", "note": "Orizzontale o 45° – piedi a larghezza spalle" },
         { "id": "squat_bulgaro", "nome": "Squat bulgaro con manubri", "serie": 3, "reps": "8-10 per gamba", "recupero": 90, "video": "https://www.youtube.com/watch?v=bulgaro1515", "note": "Bulgarian Split Squat – piede posteriore su panca" },
         { "id": "rdl_leg_curl", "nome": "Stacco rumeno / Leg Curl", "serie": 3, "reps": "8-10", "recupero": 12, "video": "https://www.youtube.com/watch?v=rdl1616", "note": "Alternativa per femorali" },

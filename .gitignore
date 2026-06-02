@@ -39,3 +39,8 @@ pnpm-lock.yaml
 
 # Misc
 Thumbs.db
+
+# Claude
+CLAUDE.md
+.claude/
+todo.md

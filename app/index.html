@@ -41,35 +41,67 @@
       .day-tab { background: #fff; color: #111; border: 1px solid #dedfe3; padding: 12px 18px; border-radius: 999px; cursor: pointer; transition: all .2s ease; }
       .day-tab.active { background: #111; color: #fff; border-color: #111; }
       .exercise-list { display: grid; gap: 16px; }
-      .exercise-card { background: white; border-radius: 24px; padding: 20px; box-shadow: 0 12px 32px rgba(12,18,40,.05); }
+      .exercise-card { background: white; border-radius: 24px; padding: 20px; box-shadow: 0 12px 32px rgba(12,18,40,.05); transition: box-shadow .2s ease; }
+      .exercise-card:not(.selected) { cursor: pointer; padding: 18px 20px; }
+      .exercise-card:not(.selected):hover { box-shadow: 0 16px 40px rgba(12,18,40,.1); }
       .exercise-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
       .exercise-head h3 { margin: 0 0 8px; font-size: 1.15rem; }
       .exercise-meta { color: #666; font-size: 0.95rem; }
-      .exercise-rec { color: #111; font-weight: 700; font-size: 0.94rem; }
+      .exercise-rec { color: #111; font-weight: 700; font-size: 0.94rem; margin-top: 8px; }
       .exercise-note { margin: 14px 0 0; color: #444; background: #fff7e0; padding: 14px 16px; border-radius: 16px; border: 1px solid #ffe4a3; }
+      .exercise-card:not(.selected) .exercise-note { opacity: 0.9; }
       .expanded-body { margin-top: 20px; }
-      .series-progress { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
-      .series-dot { width: 12px; height: 12px; border-radius: 50%; background: #d1d5db; border: 1px solid #cbd5e1; }
-      .series-dot.completed { background: #2563eb; border-color: #1d4ed8; }
-      .series-row { display: grid; gap: 14px; margin-bottom: 18px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 18px; background: #f9fafb; }
-      .series-row-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; font-weight: 700; color: #111; }
+      .series-progress { display: flex; align-items: center; justify-content: center; padding: 0 12%; margin-bottom: 20px; }
+      .series-dot { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: #f3f4f6; border: 2px solid #d1d5db; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: #9ca3af; transition: all .15s ease; padding: 0; }
+      .series-dot:hover { border-color: #93c5fd; color: #2563eb; }
+      .series-dot.active { background: #eff6ff; border-color: #2563eb; color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+      .series-dot.completed { background: #2563eb; border-color: #1d4ed8; color: white; }
+      .series-dot.completed.active { background: #1d4ed8; box-shadow: 0 0 0 3px rgba(37,99,235,.25); }
+      .series-line { flex: 1; min-width: 10px; height: 2px; background: #d1d5db; }
+      .series-nav { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: #f3f4f6; border: 1.5px solid #d1d5db; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; color: #6b7280; padding: 0; transition: all .15s ease; }
+      .series-nav:hover { background: #e5e7eb; border-color: #9ca3af; color: #111; }
+      .series-capsule { flex-shrink: 0; width: 54px; height: 34px; border-radius: 17px; border: 2px solid #d1d5db; transition: all .15s ease; }
+      .series-capsule.active { background: #eff6ff; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+      .series-capsule.completed { background: #2563eb; border-color: #1d4ed8; }
+      /* Carousel — plain block container, no flex, no percentage hacks */
+      .carousel-outer {
+        position: relative;
+        overflow: hidden;
+        margin: 0 12% 20px;   /* same side spacing as .series-progress padding */
+        height: 46px;          /* 34px dot + 6px breathing room top/bottom */
+        cursor: grab;
+        user-select: none; -webkit-user-select: none;
+        touch-action: none;
+      }
+      .carousel-outer:active { cursor: grabbing; }
+      /* Track: positioned absolutely so its width never inflates the parent */
+      .carousel-track {
+        position: absolute;
+        left: 50%;             /* track origin at container centre */
+        top: 50%;              /* vertically centred via translateY(-50%) */
+        display: flex;
+        align-items: center;
+        width: max-content;    /* as wide as all n dots need — clipped by outer */
+        will-change: transform;
+      }
+      .carousel-track--snap { transition: transform 0.25s ease; }
+      .series-line--c { flex-shrink: 0; width: 20px; height: 2px; background: #d1d5db; }
+      .series-row { display: grid; gap: 14px; margin-bottom: 16px; padding: 16px; border: 1px solid #e5e7eb; border-radius: 18px; background: #f9fafb; }
+      .series-row-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-weight: 700; color: #111; }
       .series-status { font-size: 0.92rem; color: #4b5563; }
       .series-status.pending { color: #9ca3af; }
-      .exercise-card:not(.selected) { padding: 18px 20px; }
-      .exercise-card:not(.selected) .exercise-note { opacity: 0.9; }
       .day-header h2 { margin: 0; }
       .day-header p { margin: 6px 0 0; color: #666; }
       .active-exercise { background: #fff; border-radius: 24px; padding: 24px; box-shadow: 0 16px 50px rgba(12,18,40,.08); border: 1px solid #e6e9f2; }
       .active-head { display: grid; gap: 10px; margin-bottom: 20px; }
       .active-label { color: #777; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.82rem; }
-      .input-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+      .input-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
       .input-row label { display: grid; gap: 8px; font-size: 0.95rem; color: #333; }
       .input-row input { width: 100%; padding: 14px 16px; border-radius: 16px; border: 1px solid #d1d5db; font-size: 1rem; }
       .action-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
-      .primary-button, .secondary-button, .select-button { border: 0; border-radius: 999px; padding: 12px 20px; cursor: pointer; font-weight: 600; }
+      .primary-button, .secondary-button { border: 0; border-radius: 999px; padding: 12px 20px; cursor: pointer; font-weight: 600; }
       .primary-button { background: #111; color: white; }
       .secondary-button { background: #f3f4f6; color: #111; }
-      .select-button { background: #eef2ff; color: #1d4ed8; }
       .timer-card { background: #eef5ff; padding: 18px; border-radius: 20px; border: 1px solid #dbeafe; }
       .timer-label { color: #1d4ed8; font-weight: 700; margin-bottom: 10px; }
       .timer-value { font-size: 1.5rem; font-weight: 700; margin-bottom: 10px; }
