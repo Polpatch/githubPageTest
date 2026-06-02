@@ -153,27 +153,35 @@ pub fn total_day_sets(workout: &Workout, day_label: &str) -> u32 {
         .unwrap_or(0)
 }
 
-/// Return the most recent non-terminated session for workout+day,
-/// or create and persist a brand-new one.
-/// Returns (session_id, existing_sets, active_exercise_index).
-pub fn find_or_create_session(workout: &Workout, day_idx: usize) -> (String, Vec<CompletedSet>, usize) {
+/// Find the most recent non-terminated session for workout+day.
+/// Returns None if no open session exists (use `create_session_for_day` to create one).
+pub fn find_open_session(workout_id: &str, day_label: &str) -> Option<(String, Vec<CompletedSet>, usize)> {
+    load_sessions(workout_id)
+        .into_iter()
+        .filter(|s| s.day == day_label && !s.done)
+        .max_by(|a, b| a.updated.cmp(&b.updated))
+        .map(|s| (s.id, s.sets, s.active_exercise))
+}
+
+/// All non-terminated session metas for a specific workout+day (for disambiguation).
+pub fn open_sessions_for_day(workout_id: &str, day_label: &str) -> Vec<SessionMeta> {
+    load_sessions_index()
+        .into_iter()
+        .filter(|m| m.workout_id == workout_id && m.day == day_label && !m.done)
+        .collect()
+}
+
+/// Create and persist a brand-new session for a day. Called lazily on first set.
+/// Idempotent: if an open session already exists for this day, returns its id.
+pub fn create_session_for_day(workout: &Workout, day_idx: usize) -> String {
     let day = match workout.giorni.get(day_idx) {
         Some(d) => d,
-        None => return (new_id(), vec![], 0),
+        None => return new_id(),
     };
-    let mut sessions = load_sessions(&workout.id);
-
-    // Most recently updated open session for this day
-    let existing = sessions.iter()
-        .filter(|s| s.day == day.giorno && !s.done)
-        .max_by(|a, b| a.updated.cmp(&b.updated))
-        .map(|s| (s.id.clone(), s.sets.clone(), s.active_exercise));
-
-    if let Some(found) = existing {
-        return found;
+    // Safety net: don't create a second session if one already exists
+    if let Some((existing_id, _, _)) = find_open_session(&workout.id, &day.giorno) {
+        return existing_id;
     }
-
-    // Create a new session
     let id  = new_id();
     let now = now_iso();
     let session = Session {
@@ -197,9 +205,23 @@ pub fn find_or_create_session(workout: &Workout, day_idx: usize) -> (String, Vec
         done: false,
         completion_pct: 0.0,
     });
+    let mut sessions = load_sessions(&workout.id);
     sessions.push(session);
     save_sessions(&workout.id, &sessions);
-    (id, vec![], 0)
+    id
+}
+
+/// Delete all non-terminated sessions for a specific workout+day.
+pub fn delete_sessions_for_day(workout_id: &str, day_label: &str) {
+    let mut sessions = load_sessions(workout_id);
+    let before = sessions.len();
+    sessions.retain(|s| !(s.day == day_label && !s.done));
+    if sessions.len() != before {
+        save_sessions(workout_id, &sessions);
+        let mut index = load_sessions_index();
+        index.retain(|m| !(m.workout_id == workout_id && m.day == day_label && !m.done));
+        save_sessions_index(&index);
+    }
 }
 
 /// Persist updated sets (and active_exercise) for an existing session,
@@ -233,4 +255,31 @@ pub fn update_session_sets(
         });
         save_sessions(workout_id, &sessions);
     }
+}
+
+/// Mark a single session as terminated (done).
+pub fn terminate_session(workout_id: &str, session_id: &str) {
+    let mut sessions = load_sessions(workout_id);
+    let now = now_iso();
+    if let Some(s) = sessions.iter_mut().find(|s| s.id == session_id) {
+        s.done = true;
+        s.updated = now.clone();
+        save_sessions(workout_id, &sessions);
+    }
+    let mut index = load_sessions_index();
+    if let Some(m) = index.iter_mut().find(|m| m.id == session_id) {
+        m.done = true;
+        m.updated = now.clone();
+    }
+    save_sessions_index(&index);
+}
+
+/// Remove a session entirely from storage.
+pub fn delete_session(workout_id: &str, session_id: &str) {
+    let mut sessions = load_sessions(workout_id);
+    sessions.retain(|s| s.id != session_id);
+    save_sessions(workout_id, &sessions);
+    let mut index = load_sessions_index();
+    index.retain(|m| m.id != session_id);
+    save_sessions_index(&index);
 }
