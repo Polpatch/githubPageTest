@@ -66,6 +66,99 @@ fn inputs_from_sets(sets: &[CompletedSet]) -> (HashMap<String, Vec<String>>, Has
     (w, r)
 }
 
+/// Template JSON shown to the user as a starting point for custom schede.
+const TEMPLATE_SCHEDA: &str = r#"{
+  "id": "mia_scheda",
+  "nome": "La mia scheda personalizzata",
+  "descrizione": "Descrizione opzionale — appare nella pagina dell'allenamento",
+  "categoria": "Ipertrofia / Forza / Dimagrimento",
+  "giorni": [
+    {
+      "giorno": "A",
+      "etichetta": "Giorno A — Spinta",
+      "esercizi": [
+        {
+          "id": "esercizio_1",
+          "nome": "Panca Piana",
+          "serie": 4,
+          "reps": "8-10",
+          "recupero": 120,
+          "note": "Nota opzionale: tecnica, variante, focus muscolare..."
+        },
+        {
+          "id": "esercizio_2",
+          "nome": "Lento Avanti",
+          "serie": 3,
+          "reps": "10-12",
+          "recupero": 90
+        },
+        {
+          "id": "esercizio_3",
+          "nome": "French Press",
+          "serie": 3,
+          "reps": "12-15",
+          "recupero": 60
+        }
+      ]
+    },
+    {
+      "giorno": "B",
+      "etichetta": "Giorno B — Tirata",
+      "esercizi": [
+        {
+          "id": "esercizio_4",
+          "nome": "Stacco da Terra",
+          "serie": 4,
+          "reps": "5-6",
+          "recupero": 180
+        },
+        {
+          "id": "esercizio_5",
+          "nome": "Rematore con Bilanciere",
+          "serie": 4,
+          "reps": "8-10",
+          "recupero": 120
+        },
+        {
+          "id": "esercizio_6",
+          "nome": "Curl con Bilanciere",
+          "serie": 3,
+          "reps": "10-12",
+          "recupero": 60
+        }
+      ]
+    },
+    {
+      "giorno": "C",
+      "etichetta": "Giorno C — Gambe",
+      "esercizi": [
+        {
+          "id": "esercizio_7",
+          "nome": "Squat",
+          "serie": 4,
+          "reps": "8-10",
+          "recupero": 150
+        },
+        {
+          "id": "esercizio_8",
+          "nome": "Leg Press",
+          "serie": 3,
+          "reps": "12-15",
+          "recupero": 90
+        },
+        {
+          "id": "esercizio_9",
+          "nome": "Leg Curl",
+          "serie": 3,
+          "reps": "10-12",
+          "recupero": 60
+        }
+      ]
+    }
+  ]
+}
+"#;
+
 /// Trigger a browser file-download for a JSON string.
 /// The anchor is intentionally NOT appended to the DOM: clicking a detached
 /// element doesn't bubble through Yew's event tree, avoiding the
@@ -123,6 +216,10 @@ fn app() -> Html {
         let json     = export_all_data();
         let filename = format!("allenamento_backup_{}.json", &now_iso()[..10]);
         trigger_download(&filename, &json);
+    });
+
+    let on_download_template = Callback::from(|_| {
+        trigger_download("template_scheda.json", TEMPLATE_SCHEDA);
     });
 
     let on_import_file = {
@@ -1213,6 +1310,14 @@ fn app() -> Html {
                         </label>
                         <p class="menu-hint">
                             {"Esporta tutte le schede e sessioni. L'importazione sovrascrive i dati esistenti."}
+                        </p>
+                        <div class="menu-section-title">{"Crea scheda"}</div>
+                        <button class="menu-action-btn" onclick={on_download_template}>
+                            <span class="menu-action-icon">{"⬡"}</span>
+                            {"Scarica template JSON"}
+                        </button>
+                        <p class="menu-hint">
+                            {"Struttura di esempio con tutti i campi disponibili. Modificala e caricala come scheda personalizzata."}
                         </p>
                         <div class="local-data-indicator">
                             <span class="local-data-dot"></span>
