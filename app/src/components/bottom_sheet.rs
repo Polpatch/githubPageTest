@@ -208,11 +208,14 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
         );
     }
 
-    // ── Hook: expand sheet whenever user taps a card (same or different) ──────
+    // ── Hook: expand sheet on explicit card tap (trigger > 0 skips first render) ──
     {
         let exp = expanded.clone();
         use_effect_with_deps(
-            move |_: &usize| { exp.set(true); || () },
+            move |trigger: &usize| {
+                if *trigger > 0 { exp.set(true); }
+                || ()
+            },
             props.expand_trigger,
         );
     }
