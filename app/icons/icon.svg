@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#100804"/>
+      <stop offset="100%" stop-color="#221208"/>
+    </linearGradient>
+    <linearGradient id="mask" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#f2e4c8"/>
+      <stop offset="100%" stop-color="#c8a068"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="45%" r="40%">
+      <stop offset="0%"   stop-color="#7c3a0c" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#100804" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#c8922a"/>
+      <stop offset="100%" stop-color="#7a5012"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="100" fill="url(#glow)"/>
+
+  <path d="M 182 68 H 330 Q 392 68 396 126 L 400 340 Q 402 395 368 418 L 256 436 L 144 418 Q 110 395 112 340 L 116 126 Q 120 68 182 68 Z" fill="url(#mask)"/>
+
+  <rect x="152" y="162" width="208" height="14" rx="7" fill="rgba(90,50,15,0.35)"/>
+
+  <rect x="162" y="186" width="76" height="56" rx="8" fill="#100804"/>
+  <rect x="274" y="186" width="76" height="56" rx="8" fill="#100804"/>
+  <rect x="162" y="186" width="76" height="10" rx="5" fill="rgba(255,220,160,0.18)"/>
+  <rect x="274" y="186" width="76" height="10" rx="5" fill="rgba(255,220,160,0.18)"/>
+
+  <path d="M 240 268 L 256 268 L 272 268 L 266 308 L 256 318 L 246 308 Z" fill="rgba(120,75,25,0.28)"/>
+
+  <path d="M 152 288 Q 172 330 182 360" stroke="rgba(100,60,18,0.3)" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M 360 288 Q 340 330 330 360" stroke="rgba(100,60,18,0.3)" stroke-width="8" fill="none" stroke-linecap="round"/>
+
+  <rect x="186" y="362" width="140" height="20" rx="10" fill="#100804"/>
+
+  <ellipse cx="178" cy="474" rx="19" ry="23" fill="url(#bell)"/>
+  <ellipse cx="222" cy="480" rx="17" ry="21" fill="url(#bell)"/>
+  <ellipse cx="256" cy="482" rx="17" ry="21" fill="url(#bell)"/>
+  <ellipse cx="290" cy="480" rx="17" ry="21" fill="url(#bell)"/>
+  <ellipse cx="334" cy="474" rx="19" ry="23" fill="url(#bell)"/>
+  <rect x="170" y="452" width="16" height="8" rx="4" fill="#a07020"/>
+  <rect x="214" y="460" width="14" height="7" rx="3" fill="#a07020"/>
+  <rect x="248" y="462" width="14" height="7" rx="3" fill="#a07020"/>
+  <rect x="282" y="460" width="14" height="7" rx="3" fill="#a07020"/>
+  <rect x="326" y="452" width="16" height="8" rx="4" fill="#a07020"/>
+</svg>
