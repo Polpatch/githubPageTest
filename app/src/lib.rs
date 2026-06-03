@@ -1214,6 +1214,10 @@ fn app() -> Html {
                         <p class="menu-hint">
                             {"Esporta tutte le schede e sessioni. L'importazione sovrascrive i dati esistenti."}
                         </p>
+                        <div class="local-data-indicator">
+                            <span class="local-data-dot"></span>
+                            {"Dati salvati localmente sul dispositivo"}
+                        </div>
                     </div>
                 </div>
             }

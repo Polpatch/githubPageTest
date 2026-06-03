@@ -11,6 +11,27 @@ use yew::prelude::*;
 
 const STEP_VALUES: [f32; 5] = [0.5, 1.0, 2.0, 5.0, 10.0];
 
+/// Trigger a short haptic pulse (Android only; silently ignored elsewhere).
+fn vibrate(ms: u32) {
+    let Some(window) = web_sys::window() else { return };
+    let nav = window.navigator();
+    let Ok(vib) = js_sys::Reflect::get(&nav, &"vibrate".into()) else { return };
+    if let Some(f) = vib.dyn_ref::<js_sys::Function>() {
+        let _ = f.call1(&nav, &wasm_bindgen::JsValue::from_f64(ms as f64));
+    }
+}
+
+/// Dismiss the soft keyboard by blurring the currently focused element.
+fn blur_active() {
+    let Some(window)   = web_sys::window()   else { return };
+    let Some(document) = window.document()   else { return };
+    let Some(active)   = document.active_element() else { return };
+    let Ok(blur) = js_sys::Reflect::get(&active, &"blur".into()) else { return };
+    if let Some(f) = blur.dyn_ref::<js_sys::Function>() {
+        let _ = f.call0(&active);
+    }
+}
+
 fn fmt_weight(w: f32) -> String {
     if w.fract() == 0.0 { format!("{:.0}", w) } else { format!("{:.1}", w) }
 }
@@ -265,6 +286,8 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
         let jst            = just_saved_timeout.clone();
         Callback::from(move |_: MouseEvent| {
             save.emit(clamped);
+            vibrate(50);
+            blur_active();
             // Trigger pulse animation on the saved dot
             js.set(Some(clamped));
             let js2 = js.clone();
