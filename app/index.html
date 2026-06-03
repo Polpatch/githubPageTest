@@ -100,23 +100,21 @@
       .active-exercise { background: #fff; border-radius: 24px; padding: 24px; box-shadow: 0 16px 50px rgba(12,18,40,.08); border: 1px solid #e6e9f2; }
       .active-head { display: grid; gap: 10px; margin-bottom: 20px; }
       .active-label { color: #777; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.82rem; }
-      .input-row { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; }
+      .input-row { display: flex; flex-direction: column; gap: 14px; margin-bottom: 8px; }
       .input-field { display: flex; flex-direction: column; gap: 8px; }
       .input-label { font-size: 0.82rem; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; }
-      /* Weight: large centred value input */
+      /* Weight: large centred value input above the step row */
       .weight-val-input { width: 100%; text-align: center; padding: 13px 12px; border-radius: 14px; border: 1.5px solid #d1d5db; font-size: 1.35rem; font-weight: 700; color: #111; }
       .weight-val-input:focus { border-color: #2563eb; outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
-      /* Step row: −  [step]  + */
+      /* Step row: [−] [step selector] [+] */
       .step-row { display: flex; align-items: center; gap: 8px; }
       .step-btn { flex: 1; height: 46px; border-radius: 12px; background: #f3f4f6; border: 1.5px solid #e5e7eb; font-size: 1.4rem; font-weight: 700; color: #374151; cursor: pointer; transition: background .1s; }
       .step-btn:active { background: #e5e7eb; }
       .step-selector { flex-shrink: 0; min-width: 72px; height: 46px; border-radius: 12px; background: #eff6ff; border: 1.5px solid #bfdbfe; color: #2563eb; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background .1s; }
       .step-selector:active { background: #dbeafe; }
-      /* Reps row: −  [input]  + */
+      /* Reps row: [−] [input] [+] */
       .reps-row { display: flex; align-items: center; gap: 8px; }
-      .reps-btn { flex-shrink: 0; width: 48px; height: 48px; border-radius: 12px; background: #f3f4f6; border: 1.5px solid #e5e7eb; font-size: 1.4rem; font-weight: 700; color: #374151; cursor: pointer; transition: background .1s; }
-      .reps-btn:active { background: #e5e7eb; }
-      .reps-val-input { flex: 1; height: 48px; text-align: center; padding: 0 8px; border-radius: 12px; border: 1.5px solid #d1d5db; font-size: 1.2rem; font-weight: 700; color: #111; min-width: 0; }
+      .reps-val-input { flex: 1; min-width: 0; height: 48px; text-align: center; padding: 0 8px; border-radius: 12px; border: 1.5px solid #d1d5db; font-size: 1.2rem; font-weight: 700; color: #111; }
       .reps-val-input:focus { border-color: #2563eb; outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
       .action-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
       .primary-button, .secondary-button { border: 0; border-radius: 999px; padding: 12px 20px; cursor: pointer; font-weight: 600; }
@@ -167,6 +165,17 @@
       .history-session-item:hover { background: #f3f4f6; }
       .history-session-date { font-weight: 700; font-size: 0.95rem; color: #111; }
       .history-session-meta { font-size: 0.85rem; color: #6b7280; }
+      /* Bottom sheet */
+      .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; z-index: 90; background: white; border-radius: 24px 24px 0 0; box-shadow: 0 -4px 24px rgba(12,18,40,.14); transition: height 0.28s cubic-bezier(0.4,0,0.2,1); display: flex; flex-direction: column; overflow: hidden; }
+      .bottom-sheet--expanded  { height: 62vh; }
+      .bottom-sheet--minimized { height: 72px; }
+      .sheet-handle-area { flex-shrink: 0; height: 72px; padding: 0 20px; display: flex; align-items: center; gap: 10px; cursor: pointer; position: relative; user-select: none; -webkit-user-select: none; }
+      .sheet-handle-pill { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 36px; height: 4px; border-radius: 2px; background: #d1d5db; }
+      .sheet-ex-name { flex: 1; font-weight: 700; font-size: 1rem; color: #111; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 4px; }
+      .sheet-progress-mini { font-size: 0.85rem; font-weight: 600; color: #6b7280; white-space: nowrap; }
+      .sheet-content { flex: 1; overflow-y: auto; padding: 4px 20px 8px; }
+      .sheet-actions { flex-shrink: 0; display: flex; gap: 10px; padding: 10px 20px 18px; border-top: 1px solid #f3f4f6; background: white; }
+      .app-main { padding-bottom: 80px; }
       /* Resume-session dialog */
       .resume-dialog-wrap { display: flex; justify-content: center; }
       .resume-dialog { background: white; border-radius: 24px; padding: 28px; box-shadow: 0 16px 48px rgba(12,18,40,.1); max-width: 480px; width: 100%; }

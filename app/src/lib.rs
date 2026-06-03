@@ -1,6 +1,7 @@
 mod components;
 mod models;
 
+use components::bottom_sheet::BottomSheet;
 use components::catalog_panel::CatalogPanel;
 use components::day_tabs::DayTabs;
 use components::exercise_card::ExerciseCard;
@@ -867,6 +868,18 @@ fn app() -> Html {
         }
     };
 
+    // Pre-compute selected exercise for bottom sheet
+    let sheet_exercise: Option<crate::models::Exercise> = workout.as_ref()
+        .and_then(|w| w.giorni.get(*day_index))
+        .and_then(|d| d.esercizi.get(*selected_exercise))
+        .cloned();
+    let sheet_day: Option<crate::models::Day> = workout.as_ref()
+        .and_then(|w| w.giorni.get(*day_index))
+        .cloned();
+    let sheet_workout_id: String = workout.as_ref()
+        .map(|w| w.id.clone())
+        .unwrap_or_default();
+
     // Pre-compute history sessions (needed in render, can't use let inside html!)
     let history_sessions: Vec<Session> = if *history_open {
         if let Some(w) = &*workout {
@@ -982,18 +995,8 @@ fn app() -> Html {
                                                         <ExerciseCard
                                                             exercise={exercise.clone()}
                                                             saved_sets={(*saved_sets).clone()}
-                                                            weight_inputs={(*weight_inputs).clone()}
-                                                            reps_inputs={(*reps_inputs).clone()}
                                                             is_selected={selected == idx}
                                                             on_select={Callback::from(move |_: ()| on_select_exercise.emit(idx))}
-                                                            on_save_set={on_save_set.clone()}
-                                                            on_weight_change={on_weight_change.clone()}
-                                                            on_reps_change={on_reps_change.clone()}
-                                                            on_start_timer={on_start_timer.clone()}
-                                                            on_cancel_timer={on_cancel_timer.clone()}
-                                                            timer={TimerState { running: *timer_running, left: *timer_left, total: *timer_total }}
-                                                            history_mode={*viewing_history}
-                                                            workout_id={workout_data.id.clone()}
                                                         />
                                                     }
                                                 }) }
@@ -1031,6 +1034,25 @@ fn app() -> Html {
                     <div class="error-banner">{ error_msg }</div>
                 }
             </main>
+
+            // ── Bottom sheet — selected exercise detail ───────────────────────
+            <BottomSheet
+                exercise={sheet_exercise}
+                day={sheet_day}
+                saved_sets={(*saved_sets).clone()}
+                weight_inputs={(*weight_inputs).clone()}
+                reps_inputs={(*reps_inputs).clone()}
+                on_save_set={on_save_set.clone()}
+                on_weight_change={on_weight_change.clone()}
+                on_reps_change={on_reps_change.clone()}
+                on_start_timer={on_start_timer.clone()}
+                on_cancel_timer={on_cancel_timer.clone()}
+                timer={TimerState { running: *timer_running, left: *timer_left, total: *timer_total }}
+                history_mode={*viewing_history}
+                workout_id={sheet_workout_id}
+                selected_exercise_idx={*selected_exercise}
+                on_select_exercise={on_select_exercise.clone()}
+            />
 
             // ── Burger menu modal ────────────────────────────────────────────
             if *menu_open {
