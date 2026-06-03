@@ -38,6 +38,7 @@ pub struct CatalogEntry {
     pub numero: Option<String>,
     pub mese: Option<String>,
     pub anno: Option<String>,
+    pub preferita: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

@@ -3,12 +3,34 @@ use crate::models::{
     get_input_with_fallback, weight_history_for_exercise,
     CompletedSet, Day, Exercise, TimerState, WeightPoint,
 };
+use gloo_timers::callback::Timeout;
 use std::collections::HashMap;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 const STEP_VALUES: [f32; 5] = [0.5, 1.0, 2.0, 5.0, 10.0];
+
+/// Trigger a short haptic pulse (Android only; silently ignored elsewhere).
+fn vibrate(ms: u32) {
+    let Some(window) = web_sys::window() else { return };
+    let nav = window.navigator();
+    let Ok(vib) = js_sys::Reflect::get(&nav, &"vibrate".into()) else { return };
+    if let Some(f) = vib.dyn_ref::<js_sys::Function>() {
+        let _ = f.call1(&nav, &wasm_bindgen::JsValue::from_f64(ms as f64));
+    }
+}
+
+/// Dismiss the soft keyboard by blurring the currently focused element.
+fn blur_active() {
+    let Some(window)   = web_sys::window()   else { return };
+    let Some(document) = window.document()   else { return };
+    let Some(active)   = document.active_element() else { return };
+    let Ok(blur) = js_sys::Reflect::get(&active, &"blur".into()) else { return };
+    if let Some(f) = blur.dyn_ref::<js_sys::Function>() {
+        let _ = f.call0(&active);
+    }
+}
 
 fn fmt_weight(w: f32) -> String {
     if w.fract() == 0.0 { format!("{:.0}", w) } else { format!("{:.1}", w) }
@@ -54,17 +76,19 @@ fn render_weight_chart(points: &[WeightPoint]) -> Html {
     html! {
         <svg viewBox={format!("0 0 {view_width} {view_height}")} width="100%" height="130"
              style="display:block;overflow:visible">
-            <line x1={format!("{pad_left}")} y1={y_top_str.clone()}
+            <line class="chart-gridline-light"
+                  x1={format!("{pad_left}")} y1={y_top_str.clone()}
                   x2={format!("{:.0}", view_width - pad_right)} y2={y_top_str.clone()}
                   stroke="#f3f4f6" stroke-width="1"/>
-            <line x1={format!("{pad_left}")} y1={y_bot_str.clone()}
+            <line class="chart-gridline"
+                  x1={format!("{pad_left}")} y1={y_bot_str.clone()}
                   x2={format!("{:.0}", view_width - pad_right)} y2={y_bot_str.clone()}
                   stroke="#e5e7eb" stroke-width="1"/>
-            <text x={x_ylabel_str.clone()} y={y_top_str}
+            <text class="chart-ylabel" x={x_ylabel_str.clone()} y={y_top_str}
                   text-anchor="end" font-size="9" fill="#9ca3af">{ label_max_w }</text>
-            <text x={x_ylabel_str} y={format!("{:.1}", pad_top + inner_h + 3.0)}
+            <text class="chart-ylabel" x={x_ylabel_str} y={format!("{:.1}", pad_top + inner_h + 3.0)}
                   text-anchor="end" font-size="9" fill="#9ca3af">{ label_min_w }</text>
-            <path d={path_d} fill="none" stroke="#2563eb"
+            <path class="chart-line" d={path_d} fill="none" stroke="#2563eb"
                   stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
             { for points.iter().enumerate().map(|(i, p)| {
                 let x = to_x(i); let y = to_y(p.max_weight);
@@ -74,14 +98,17 @@ fn render_weight_chart(points: &[WeightPoint]) -> Html {
                 let dy        = format!("{:.1}", view_height - 4.0);
                 html! {
                     <g>
-                        <circle cx={format!("{x:.1}")} cy={format!("{y:.1}")} r="3.5"
+                        <circle class="chart-dot"
+                                cx={format!("{x:.1}")} cy={format!("{y:.1}")} r="3.5"
                                 fill="#2563eb" stroke="white" stroke-width="1.5"/>
-                        <text x={format!("{x:.1}")} y={format!("{:.1}", y - 7.0)}
+                        <text class="chart-value"
+                              x={format!("{x:.1}")} y={format!("{:.1}", y - 7.0)}
                               text-anchor="middle" font-size="9" fill="#111" font-weight="600">
                             { format!("{:.1}", p.max_weight) }
                         </text>
                         { if show_date { html! {
-                            <text x={format!("{x:.1}")} y={dy}
+                            <text class="chart-date"
+                                  x={format!("{x:.1}")} y={dy}
                                   text-anchor={anchor} font-size="9" fill="#9ca3af">
                                 { date_str }
                             </text>
@@ -113,14 +140,18 @@ pub struct BottomSheetProps {
     /// Index of the selected exercise in the day (for exercise-level auto-advance).
     pub selected_exercise_idx: usize,
     pub on_select_exercise:    Callback<usize>,
+    /// Increments every time the user taps an exercise card — forces sheet open.
+    pub expand_trigger: usize,
 }
 
 #[function_component(BottomSheet)]
 pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
-    let active_set = use_state(|| 0usize);
-    let step_idx   = use_state(|| 1usize); // 1.0 kg default
-    let chart_open = use_state(|| false);
-    let expanded   = use_state(|| true);
+    let active_set         = use_state(|| 0usize);
+    let step_idx           = use_state(|| 1usize); // 1.0 kg default
+    let chart_open         = use_state(|| false);
+    let expanded           = use_state(|| true);
+    let just_saved         = use_state(|| None::<usize>);
+    let just_saved_timeout = use_mut_ref(|| None::<Timeout>);
 
     // ── Values computed before hooks (hooks must run unconditionally) ─────────
     let exercise_id = props.exercise.as_ref().map(|e| e.id.clone()).unwrap_or_default();
@@ -179,12 +210,31 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
         );
     }
 
+    // ── Hook: expand sheet whenever user taps a card (same or different) ──────
+    {
+        let exp = expanded.clone();
+        use_effect_with_deps(
+            move |_: &usize| { exp.set(true); || () },
+            props.expand_trigger,
+        );
+    }
+
     // ── Early return when no exercise ─────────────────────────────────────────
     let exercise = match &props.exercise { Some(e) => e, None => return html! {} };
 
     // ── Input values ──────────────────────────────────────────────────────────
     let weight_value = get_input_with_fallback(&props.weight_inputs, &exercise_id, clamped, "");
     let reps_value   = get_input_with_fallback(&props.reps_inputs,   &exercise_id, clamped, &exercise.reps);
+
+    // Hint from last session — shown as placeholder when no weight entered yet
+    let weight_hint: String = if weight_value.is_empty() {
+        weight_history_for_exercise(&props.workout_id, &exercise.id)
+            .last()
+            .map(|p| fmt_weight(p.max_weight))
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
     let set_number   = (clamped + 1) as u32;
     let completed    = props.saved_sets.iter()
         .any(|s| s.exercise_id == exercise.id && s.set_number == set_number);
@@ -224,16 +274,25 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
         Callback::from(move |_: MouseEvent| cb.emit((eid.clone(), clamped, val.clone())))
     };
 
-    // ── Save set + active_set advance (same as before) ────────────────────────
+    // ── Save set + active_set advance + just-saved pulse ─────────────────────
     let on_register = {
-        let save          = props.on_save_set.clone();
-        let asc           = active_set.clone();
-        let dot_snap      = dot_done.clone();
-        let cancel_timer  = props.on_cancel_timer.clone();
-        let was_completed = completed;
-        let timer_active  = props.timer.running;
+        let save           = props.on_save_set.clone();
+        let asc            = active_set.clone();
+        let dot_snap       = dot_done.clone();
+        let cancel_timer   = props.on_cancel_timer.clone();
+        let was_completed  = completed;
+        let timer_active   = props.timer.running;
+        let js             = just_saved.clone();
+        let jst            = just_saved_timeout.clone();
         Callback::from(move |_: MouseEvent| {
             save.emit(clamped);
+            vibrate(50);
+            blur_active();
+            // Trigger pulse animation on the saved dot
+            js.set(Some(clamped));
+            let js2 = js.clone();
+            let t = Timeout::new(600, move || { js2.set(None); });
+            *jst.borrow_mut() = Some(t);
             if !was_completed {
                 if timer_active { cancel_timer.emit(()); }
                 let next = (1..n)
@@ -274,7 +333,7 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
 
             // ── Expandable content ────────────────────────────────────────
             if *expanded {
-                <div class="sheet-content">
+                <div class="sheet-content" key={exercise_id.clone()}>
                     if *chart_open {
                         <div class="weight-chart-section">
                             { render_weight_chart(&chart_points) }
@@ -285,6 +344,7 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                         n={exercise.serie}
                         dot_done={dot_done.clone()}
                         active={clamped}
+                        just_saved={*just_saved}
                         on_select={{
                             let asc = active_set.clone();
                             Callback::from(move |idx: usize| asc.set(idx))
@@ -305,7 +365,8 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                             <div class="input-field">
                                 <span class="input-label">{"Peso (kg)"}</span>
                                 <input class="weight-val-input" value={weight_value}
-                                    inputmode="decimal" placeholder="0"
+                                    inputmode="decimal"
+                                    placeholder={if weight_hint.is_empty() { "0".to_string() } else { format!("{} (ultima)", weight_hint) }}
                                     oninput={{
                                         let cb = props.on_weight_change.clone();
                                         let eid = exercise_id.clone();
@@ -358,7 +419,6 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                         { if completed { "Aggiorna serie" } else { "Registra serie" } }
                     </button>
                     if !props.history_mode
-                        && exercise.recupero.is_some()
                         && (!completed || props.timer.running || props.timer.left > 0)
                     {
                         <button class="secondary-button" onclick={{

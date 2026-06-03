@@ -12,6 +12,10 @@ pub struct CatalogPanelProps {
 
 #[function_component(CatalogPanel)]
 pub fn catalog_panel(props: &CatalogPanelProps) -> Html {
+    // Preferita first, then the rest in original order
+    let mut entries: Vec<&CatalogEntry> = props.catalog.iter().collect();
+    entries.sort_by_key(|e| !e.preferita.unwrap_or(false));
+
     html! {
         <section class="upload-panel">
             <div class="upload-card">
@@ -23,16 +27,30 @@ pub fn catalog_panel(props: &CatalogPanelProps) -> Html {
                 } else {
                     html! {
                         <div class="catalog-list">
-                            { for props.catalog.iter().map(|entry| {
-                                let item = entry.clone();
+                            { for entries.iter().map(|entry| {
+                                let item  = (*entry).clone();
                                 let on_load = props.on_load_catalog_entry.clone();
+                                let is_featured = entry.preferita.unwrap_or(false);
                                 html! {
-                                    <article class="catalog-card" onclick={Callback::from(move |_| on_load.emit(item.clone()))}>
+                                    <article
+                                        class={classes!(
+                                            "catalog-card",
+                                            if is_featured { Some("catalog-card--featured") } else { None }
+                                        )}
+                                        onclick={Callback::from(move |_| on_load.emit(item.clone()))}
+                                    >
                                         <div class="catalog-info">
-                                            <div class="catalog-title">{ entry.display_name() }</div>
+                                            <div class="catalog-title-row">
+                                                <span class="catalog-title">{ entry.display_name() }</span>
+                                                if is_featured {
+                                                    <span class="catalog-featured-badge">{"In uso"}</span>
+                                                }
+                                            </div>
                                             <div class="catalog-meta">{ entry.date_label() }</div>
                                         </div>
-                                        <button class="select-button">{"Apri"}</button>
+                                        <button class={if is_featured { "select-button select-button--featured" } else { "select-button" }}>
+                                            {"Apri"}
+                                        </button>
                                     </article>
                                 }
                             }) }

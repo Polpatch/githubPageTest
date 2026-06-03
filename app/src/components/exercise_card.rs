@@ -26,11 +26,8 @@ pub fn exercise_card(props: &ExerciseCardProps) -> Html {
     let active_hint = dot_done.iter().position(|&done| !done).unwrap_or(0);
 
     let onclick_card = {
-        let on_select   = props.on_select.clone();
-        let is_selected = props.is_selected;
-        Callback::from(move |_: MouseEvent| {
-            if !is_selected { on_select.emit(()); }
-        })
+        let on_select = props.on_select.clone();
+        Callback::from(move |_: MouseEvent| on_select.emit(()))
     };
 
     html! {
@@ -51,15 +48,14 @@ pub fn exercise_card(props: &ExerciseCardProps) -> Html {
                     { format!("Recupero: {}s", exercise.recupero.unwrap_or(0)) }
                 </div>
             }
-            // Read-only progress bar (tapping a dot still selects the exercise)
+            // Read-only progress bar (tapping a dot selects the exercise)
             <ProgressBar
                 n={exercise.serie}
                 dot_done={dot_done}
                 active={active_hint}
                 on_select={{
                     let on_sel = props.on_select.clone();
-                    let is_selected = props.is_selected;
-                    Callback::from(move |_: usize| { if !is_selected { on_sel.emit(()); } })
+                    Callback::from(move |_: usize| on_sel.emit(()))
                 }}
             />
         </article>

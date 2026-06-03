@@ -40,6 +40,8 @@ pub struct ProgressBarProps {
     pub active: usize,
     /// Called with the new index when the user taps a dot.
     pub on_select: Callback<usize>,
+    /// Index of the dot that was just saved (triggers pulse animation).
+    pub just_saved: Option<usize>,
 }
 
 #[function_component(ProgressBar)]
@@ -140,19 +142,22 @@ pub fn progress_bar(props: &ProgressBarProps) -> Html {
 
     // ── Dot factory ────────────────────────────────────────────────────────
     let make_dot = {
-        let dot_done    = props.dot_done.clone();
-        let active      = props.active;
-        let on_select   = props.on_select.clone();
+        let dot_done   = props.dot_done.clone();
+        let active     = props.active;
+        let on_select  = props.on_select.clone();
+        let just_saved = props.just_saved;
         move |idx: usize| -> Html {
-            let is_done   = dot_done.get(idx).copied().unwrap_or(false);
-            let is_active = active == idx;
-            let on_sel    = on_select.clone();
+            let is_done       = dot_done.get(idx).copied().unwrap_or(false);
+            let is_active     = active == idx;
+            let is_just_saved = just_saved == Some(idx);
+            let on_sel        = on_select.clone();
             html! {
                 <button
                     class={classes!(
                         "series-dot",
-                        if is_done   { Some("completed") } else { None },
-                        if is_active { Some("active")    } else { None }
+                        if is_done       { Some("completed")           } else { None },
+                        if is_active     { Some("active")              } else { None },
+                        if is_just_saved { Some("series-dot--just-saved") } else { None }
                     )}
                     onclick={Callback::from(move |e: MouseEvent| {
                         e.stop_propagation();
@@ -165,12 +170,14 @@ pub fn progress_bar(props: &ProgressBarProps) -> Html {
 
     // ── Rendering ──────────────────────────────────────────────────────────
     if n == 1 {
-        let is_done = props.dot_done.first().copied().unwrap_or(false);
+        let is_done       = props.dot_done.first().copied().unwrap_or(false);
+        let is_just_saved = props.just_saved == Some(0);
         return html! {
             <div class="series-progress">
                 <div class={classes!(
                     "series-capsule",
-                    if is_done { Some("completed") } else { Some("active") }
+                    if is_done       { Some("completed")               } else { Some("active") },
+                    if is_just_saved { Some("series-capsule--just-saved") } else { None }
                 )}></div>
             </div>
         };

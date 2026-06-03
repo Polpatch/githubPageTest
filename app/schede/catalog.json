@@ -1,5 +1,5 @@
 [
-  { "file": "schede/scheda_Athlon_01_05.json",    "nome": "Scheda PPL — Compatta",                   "numero": "01", "mese": "05", "anno": "2026" },
-  { "file": "schede/scheda Athlon_06_XX.json",    "nome": "Scheda PPL — Ipertrofia & Dimagrimento",  "numero": "02", "mese": "06", "anno": "2026" },
-  { "file": "schede/scheda_michael.json",         "nome": "Scheda PPL — Originale PDF",              "numero": "03", "mese": "06", "anno": "2026" }
+  { "file": "schede/scheda_Athlon_01_05.json", "nome": "Scheda PPL — Compatta",                  "numero": "01", "mese": "05", "anno": "2026" },
+  { "file": "schede/scheda Athlon_06_XX.json", "nome": "Scheda PPL — Ipertrofia & Dimagrimento", "numero": "02", "mese": "06", "anno": "2026", "preferita": true },
+  { "file": "schede/scheda_michael.json",      "nome": "Scheda PPL — Originale PDF",             "numero": "03", "mese": "06", "anno": "2026" }
 ]

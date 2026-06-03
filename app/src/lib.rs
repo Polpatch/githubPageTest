@@ -106,9 +106,13 @@ fn app() -> Html {
     let timer_handle       = use_mut_ref(|| None::<Interval>);
     let reader_task        = use_mut_ref(|| None::<FileReader>);
     let import_reader      = use_mut_ref(|| None::<FileReader>);
-    let menu_open       = use_state(|| false);
-    let history_open    = use_state(|| false);
-    let viewing_history = use_state(|| false);
+    let menu_open               = use_state(|| false);
+    let history_open            = use_state(|| false);
+    let viewing_history         = use_state(|| false);
+    let show_completion         = use_state(|| false);
+    let expand_trigger          = use_state(|| 0usize);
+    let session_elapsed         = use_state(|| 0u32);
+    let session_elapsed_handle  = use_mut_ref(|| None::<Interval>);
     // ID of the currently active session (empty = no workout loaded)
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
@@ -307,7 +311,11 @@ fn app() -> Html {
     // ── Exercise / day selection ─────────────────────────────────────────────
     let on_select_exercise = {
         let selected_exercise = selected_exercise.clone();
-        Callback::from(move |idx: usize| selected_exercise.set(idx))
+        let expand_trigger    = expand_trigger.clone();
+        Callback::from(move |idx: usize| {
+            selected_exercise.set(idx);
+            expand_trigger.set(*expand_trigger + 1);
+        })
     };
 
     let on_change_day = {
@@ -702,25 +710,30 @@ fn app() -> Html {
     // Shared: reset all workout-related state handles to their initial values.
     // Used by on_save_and_finish, on_delete_workout, and clear_workout.
     let reset_workout_state: Rc<dyn Fn()> = {
-        let timer_handle       = timer_handle.clone();
-        let timer_running      = timer_running.clone();
-        let timer_left         = timer_left.clone();
-        let timer_total        = timer_total.clone();
-        let workout            = workout.clone();
-        let error              = error.clone();
-        let day_index          = day_index.clone();
-        let selected_exercise  = selected_exercise.clone();
-        let saved_sets         = saved_sets.clone();
-        let weight_inputs      = weight_inputs.clone();
-        let reps_inputs        = reps_inputs.clone();
-        let current_session_id = current_session_id.clone();
-        let resume_candidates  = resume_candidates.clone();
-        let viewing_history    = viewing_history.clone();
+        let timer_handle           = timer_handle.clone();
+        let timer_running          = timer_running.clone();
+        let timer_left             = timer_left.clone();
+        let timer_total            = timer_total.clone();
+        let workout                = workout.clone();
+        let error                  = error.clone();
+        let day_index              = day_index.clone();
+        let selected_exercise      = selected_exercise.clone();
+        let saved_sets             = saved_sets.clone();
+        let weight_inputs          = weight_inputs.clone();
+        let reps_inputs            = reps_inputs.clone();
+        let current_session_id     = current_session_id.clone();
+        let resume_candidates      = resume_candidates.clone();
+        let viewing_history        = viewing_history.clone();
+        let show_completion        = show_completion.clone();
+        let session_elapsed        = session_elapsed.clone();
+        let session_elapsed_handle = session_elapsed_handle.clone();
         Rc::new(move || {
             timer_handle.borrow_mut().take();
             timer_running.set(false);
             timer_left.set(0);
             timer_total.set(0);
+            session_elapsed_handle.borrow_mut().take();
+            session_elapsed.set(0);
             workout.set(None);
             error.set(None);
             day_index.set(0);
@@ -731,6 +744,7 @@ fn app() -> Html {
             current_session_id.set(String::new());
             resume_candidates.set(vec![]);
             viewing_history.set(false);
+            show_completion.set(false);
         })
     };
 
@@ -857,6 +871,95 @@ fn app() -> Html {
         );
     }
 
+    // ── Session elapsed timer ────────────────────────────────────────────────
+    {
+        let elapsed = session_elapsed.clone();
+        let handle  = session_elapsed_handle.clone();
+        let wk      = workout.clone();
+        use_effect_with_deps(
+            move |(sid, in_history): &(String, bool)| {
+                handle.borrow_mut().take();
+                if sid.is_empty() || *in_history {
+                    elapsed.set(0);
+                } else {
+                    let initial = wk.as_ref()
+                        .and_then(|w| {
+                            load_sessions(&w.id)
+                                .into_iter()
+                                .find(|s| &s.id == sid)
+                                .map(|s| {
+                                    let diff = (js_sys::Date::now() - js_sys::Date::parse(&s.started)).max(0.0);
+                                    (diff / 1000.0) as u32
+                                })
+                        })
+                        .unwrap_or(0);
+                    elapsed.set(initial);
+                    let elapsed2 = elapsed.clone();
+                    let count    = Rc::new(Cell::new(initial));
+                    let count2   = count.clone();
+                    let h = Interval::new(1000, move || {
+                        let n = count2.get() + 1;
+                        count2.set(n);
+                        elapsed2.set(n);
+                    });
+                    *handle.borrow_mut() = Some(h);
+                }
+                || ()
+            },
+            ((*current_session_id).clone(), *viewing_history),
+        );
+    }
+
+    // Pre-compute session progress (done / total sets for current day)
+    let session_done: usize = saved_sets.len();
+    let session_total: usize = workout.as_ref()
+        .and_then(|w| w.giorni.get(*day_index))
+        .map(|d| d.esercizi.iter().map(|e| e.serie as usize).sum())
+        .unwrap_or(0);
+    let all_done = session_total > 0
+        && session_done >= session_total
+        && !(*current_session_id).is_empty()
+        && !*viewing_history;
+
+    // Pre-compute completion stats (only when all sets done)
+    let completion_duration: String = if all_done {
+        let wid = workout.as_ref().map(|w| w.id.clone()).unwrap_or_default();
+        let sid = (*current_session_id).clone();
+        load_sessions(&wid)
+            .into_iter()
+            .find(|s| s.id == sid)
+            .map(|s| {
+                let diff_ms = (js_sys::Date::now() - js_sys::Date::parse(&s.started)).max(0.0);
+                let mins = (diff_ms / 60000.0) as u32;
+                let secs = ((diff_ms % 60000.0) / 1000.0) as u32;
+                format!("{}:{:02}", mins, secs)
+            })
+            .unwrap_or_else(|| "-".to_string())
+    } else {
+        String::new()
+    };
+    let completion_weight: f32 = if all_done {
+        saved_sets.iter().filter_map(|s| s.peso).sum()
+    } else { 0.0 };
+
+    // Auto-open completion modal when the last set is registered
+    {
+        let sc = show_completion.clone();
+        use_effect_with_deps(
+            move |done: &bool| {
+                if *done { sc.set(true); }
+                || ()
+            },
+            all_done,
+        );
+    }
+
+    // Pre-compute session elapsed display string
+    let elapsed_str: String = {
+        let s = *session_elapsed;
+        if s > 0 { format!("{}:{:02}", s / 60, s % 60) } else { String::new() }
+    };
+
     // Pre-compute timer circle dashoffset (2π × r=19 ≈ 119.38)
     let timer_dashoffset: String = {
         const CIRCUM: f64 = 119.38;
@@ -888,6 +991,11 @@ fn app() -> Html {
             } else { vec![] }
         } else { vec![] }
     } else { vec![] };
+
+    let on_close_completion = {
+        let sc = show_completion.clone();
+        Callback::from(move |_: MouseEvent| sc.set(false))
+    };
 
     // ── Render ───────────────────────────────────────────────────────────────
     let open_menu  = { let m = menu_open.clone(); Callback::from(move |_| m.set(true))  };
@@ -985,10 +1093,25 @@ fn app() -> Html {
                                     html! {
                                         <>
                                             <div class="day-header">
-                                                <h2>{ day.etichetta.clone().unwrap_or_else(|| day.giorno.clone()) }</h2>
-                                                <p>{ format!("{} esercizi", day.esercizi.len()) }</p>
+                                                <div class="day-header-row">
+                                                    <h2>{ day.etichetta.clone().unwrap_or_else(|| day.giorno.clone()) }</h2>
+                                                    if session_total > 0 {
+                                                        <span class={classes!(
+                                                            "session-progress-badge",
+                                                            if all_done { Some("session-progress-badge--done") } else { None }
+                                                        )}>
+                                                            { format!("{} / {} serie", session_done, session_total) }
+                                                        </span>
+                                                    }
+                                                </div>
+                                                <p>
+                                                    { format!("{} esercizi", day.esercizi.len()) }
+                                                    if !elapsed_str.is_empty() {
+                                                        { format!(" · {}", elapsed_str.clone()) }
+                                                    }
+                                                </p>
                                             </div>
-                                            <section class="exercise-list">
+                                            <section class="exercise-list" key={*day_index}>
                                                 { for day.esercizi.iter().enumerate().map(|(idx, exercise)| {
                                                     let on_select_exercise = on_select_exercise.clone();
                                                     html! {
@@ -1002,7 +1125,11 @@ fn app() -> Html {
                                                 }) }
                                             </section>
                                             <div class="workout-footer">
-                                                <button class="footer-btn footer-btn--save"
+                                                <button class={classes!(
+                                                    "footer-btn",
+                                                    "footer-btn--save",
+                                                    if all_done { Some("footer-btn--save--done") } else { None }
+                                                )}
                                                     onclick={on_save_and_finish.clone()}>
                                                     {"Salva e termina"}
                                                 </button>
@@ -1052,6 +1179,7 @@ fn app() -> Html {
                 workout_id={sheet_workout_id}
                 selected_exercise_idx={*selected_exercise}
                 on_select_exercise={on_select_exercise.clone()}
+                expand_trigger={*expand_trigger}
             />
 
             // ── Burger menu modal ────────────────────────────────────────────
@@ -1086,6 +1214,10 @@ fn app() -> Html {
                         <p class="menu-hint">
                             {"Esporta tutte le schede e sessioni. L'importazione sovrascrive i dati esistenti."}
                         </p>
+                        <div class="local-data-indicator">
+                            <span class="local-data-dot"></span>
+                            {"Dati salvati localmente sul dispositivo"}
+                        </div>
                     </div>
                 </div>
             }
@@ -1095,18 +1227,15 @@ fn app() -> Html {
                 <div class="timer-toast">
                     // Circular countdown
                     <svg viewBox="0 0 50 50" width="50" height="50" style="flex-shrink:0">
-                        // Background ring
-                        <circle cx="25" cy="25" r="19"
+                        <circle class="timer-ring-bg" cx="25" cy="25" r="19"
                                 fill="none" stroke="#dbeafe" stroke-width="3.5"/>
-                        // Progress arc (depletes as time runs out)
-                        <circle cx="25" cy="25" r="19"
+                        <circle class="timer-ring-arc" cx="25" cy="25" r="19"
                                 fill="none" stroke="#2563eb" stroke-width="3.5"
                                 stroke-linecap="round"
                                 stroke-dasharray="119.38"
                                 stroke-dashoffset={timer_dashoffset}
                                 transform="rotate(-90, 25, 25)"/>
-                        // Seconds label
-                        <text x="25" y="30" text-anchor="middle"
+                        <text class="timer-ring-text" x="25" y="30" text-anchor="middle"
                               font-size="13" font-weight="700" fill="#111">
                             { format!("{}s", *timer_left) }
                         </text>
@@ -1130,6 +1259,49 @@ fn app() -> Html {
                                 onclick={{ let cb = on_cancel_timer.clone(); Callback::from(move |_| cb.emit(())) }}>
                             {"✕"}
                         </button>
+                    </div>
+                </div>
+            }
+
+            // ── Workout completion modal ──────────────────────────────────────
+            if *show_completion {
+                <div class="completion-overlay"
+                    onclick={on_close_completion.clone()}>
+                    <div class="completion-modal"
+                        onclick={Callback::from(|e: MouseEvent| e.stop_propagation())}>
+                        <div class="completion-modal-title">{"Allenamento completato!"}</div>
+                        <div class="completion-stats">
+                            <div class="completion-stat">
+                                <span class="completion-stat-value">{ session_done.to_string() }</span>
+                                <span class="completion-stat-label">{"Serie"}</span>
+                            </div>
+                            <div class="completion-stat">
+                                <span class="completion-stat-value">
+                                    { format!("{:.0}kg", completion_weight) }
+                                </span>
+                                <span class="completion-stat-label">{"Peso totale"}</span>
+                            </div>
+                            <div class="completion-stat">
+                                <span class="completion-stat-value">{ completion_duration.clone() }</span>
+                                <span class="completion-stat-label">{"Durata"}</span>
+                            </div>
+                        </div>
+                        <div class="completion-modal-actions">
+                            <button class="primary-button completion-save-btn"
+                                onclick={{
+                                    let close = on_close_completion.clone();
+                                    let save  = on_save_and_finish.clone();
+                                    Callback::from(move |e: MouseEvent| {
+                                        close.emit(e.clone());
+                                        save.emit(e);
+                                    })
+                                }}>
+                                {"Salva e termina"}
+                            </button>
+                            <button class="secondary-button" onclick={on_close_completion.clone()}>
+                                {"Rivedi l'allenamento"}
+                            </button>
+                        </div>
                     </div>
                 </div>
             }
