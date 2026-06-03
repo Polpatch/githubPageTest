@@ -1,4 +1,4 @@
-const CACHE = 'training-v1';
+const CACHE = 'training-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -16,13 +16,17 @@ self.addEventListener('fetch', e => {
   if (!req.url.startsWith(self.location.origin)) return;
 
   const url = new URL(req.url);
-  const isIndexHtml = url.pathname.endsWith('/')
-    || url.pathname.endsWith('/index.html')
-    || url.pathname === self.registration.scope;
 
-  if (isIndexHtml) {
-    // Network-first for index.html: always fetch fresh so updated asset
-    // hashes (injected by Trunk) are picked up immediately.
+  const isNetworkFirst =
+    // index.html — always fresh (Trunk injects new asset hashes on each build)
+    url.pathname.endsWith('/')           ||
+    url.pathname.endsWith('/index.html') ||
+    url.pathname === self.registration.scope ||
+    // schede JSON — can be updated in the repo without a full rebuild
+    url.pathname.includes('/schede/');
+
+  if (isNetworkFirst) {
+    // Network-first: try network, cache result, fall back to cache if offline
     e.respondWith(
       fetch(req)
         .then(res => {
@@ -32,15 +36,15 @@ self.addEventListener('fetch', e => {
         .catch(() => caches.match(req))
     );
   } else {
-    // Cache-first for everything else: Trunk adds content hashes to asset
-    // filenames so they are effectively immutable.
+    // Cache-first: Trunk content-hashes all other assets (JS/WASM/CSS/icons)
+    // so they are effectively immutable — serve from cache instantly.
     e.respondWith(
       caches.match(req).then(cached => {
         if (cached) return cached;
         return fetch(req).then(res => {
           if (res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
           return res;
-        }).catch(() => { /* offline, no cache — let it fail */ });
+        }).catch(() => { /* offline, no cache */ });
       })
     );
   }

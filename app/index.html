@@ -373,6 +373,12 @@
       .completion-save-btn { width: 100%; background: var(--green-mid); color: white; font-size: 1rem; padding: 14px 20px; }
       .completion-modal-actions .secondary-button { width: 100%; text-align: center; padding: 12px 20px; }
       .footer-btn--save--done { background: var(--green-mid); color: white; }
+      /* Video overlay */
+      .video-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; }
+      .video-modal { width: 100%; max-width: 560px; }
+      .video-iframe-wrapper { position: relative; padding-top: 56.25%; border-radius: 14px; overflow: hidden; background: #000; }
+      .video-icon-btn { flex-shrink: 0; background: var(--blue-bg); border: none; cursor: pointer; font-size: 0.85rem; color: var(--blue); padding: 4px 8px; border-radius: 8px; font-weight: 700; transition: background .15s; line-height: 1; }
+      .video-icon-btn:hover { background: var(--blue-soft); }
       /* Local data indicator in menu */
       .local-data-indicator { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 10px 0; font-size: 0.85rem; color: var(--text-3); border-top: 1px solid var(--border); }
       .local-data-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-mid); flex-shrink: 0; }

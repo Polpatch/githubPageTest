@@ -11,6 +11,23 @@ use yew::prelude::*;
 
 const STEP_VALUES: [f32; 5] = [0.5, 1.0, 2.0, 5.0, 10.0];
 
+/// Convert any YouTube URL format to an embeddable URL with autoplay.
+fn youtube_embed_url(url: &str) -> Option<String> {
+    if url.contains("youtube.com/embed/") {
+        return Some(format!("{}&autoplay=1&rel=0&modestbranding=1", url));
+    }
+    let id = if let Some(pos) = url.find("v=") {
+        url[pos + 2..].split('&').next()?
+    } else if url.contains("youtu.be/") {
+        url.split("youtu.be/").nth(1)?.split('?').next()?
+    } else if url.contains("shorts/") {
+        url.split("shorts/").nth(1)?.split('?').next()?
+    } else {
+        return None;
+    };
+    Some(format!("https://www.youtube.com/embed/{}?autoplay=1&rel=0&modestbranding=1", id))
+}
+
 /// Trigger a short haptic pulse (Android only; silently ignored elsewhere).
 fn vibrate(ms: u32) {
     let Some(window) = web_sys::window() else { return };
@@ -150,6 +167,7 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
     let step_idx           = use_state(|| 1usize); // 1.0 kg default
     let chart_open         = use_state(|| false);
     let expanded           = use_state(|| false);
+    let video_open         = use_state(|| false);
     let just_saved         = use_state(|| None::<usize>);
     let just_saved_timeout = use_mut_ref(|| None::<Timeout>);
 
@@ -309,10 +327,14 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
         weight_history_for_exercise(&props.workout_id, &exercise.id)
     } else { vec![] };
 
+    // Video embed URL (None if no video or unrecognised URL)
+    let video_embed: Option<String> = exercise.video.as_deref().and_then(youtube_embed_url);
+
     let sheet_class = if *expanded { "bottom-sheet bottom-sheet--expanded" }
                       else         { "bottom-sheet bottom-sheet--minimized" };
 
     html! {
+        <>
         <div class={sheet_class}>
             // ── Handle area (always visible) ──────────────────────────────
             <div class="sheet-handle-area"
@@ -322,6 +344,16 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                 <span class="sheet-progress-mini">
                     { format!("{} / {}", completed_count, n) }
                 </span>
+                if video_embed.is_some() {
+                    <button class="video-icon-btn" title="Guarda video esercizio"
+                        onclick={{
+                            let vo = video_open.clone();
+                            Callback::from(move |e: MouseEvent| {
+                                e.stop_propagation();
+                                vo.set(true);
+                            })
+                        }}>{"▶"}</button>
+                }
                 <button class="chart-icon-btn" title="Grafico avanzamento peso"
                     onclick={{
                         let co = chart_open.clone();
@@ -434,5 +466,26 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                 </div>
             }
         </div>
+
+        // ── Video overlay (position:fixed, renders over everything) ───────
+        if *video_open {
+            if let Some(embed_url) = video_embed {
+                <div class="video-overlay"
+                    onclick={{ let vo = video_open.clone(); Callback::from(move |_| vo.set(false)) }}>
+                    <div class="video-modal"
+                        onclick={Callback::from(|e: MouseEvent| e.stop_propagation())}>
+                        <div class="video-iframe-wrapper">
+                            <iframe
+                                src={embed_url}
+                                allow="autoplay; encrypted-media; fullscreen"
+                                allowfullscreen={true}
+                                style="position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:14px;"
+                            />
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        </>
     }
 }
