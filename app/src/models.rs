@@ -101,7 +101,9 @@ fn save_schedules(schedules: &[Workout]) {
     let _ = LocalStorage::set("schedules", schedules);
 }
 
-/// Insert or replace a schedule by id.
+/// Replace an existing schedule (matched by id) with the fresh version, or insert if new.
+/// Called every time a scheda is loaded — ensures localStorage always holds
+/// the latest structure (new fields like `video`) without touching session data.
 pub fn upsert_schedule(workout: &Workout) {
     let mut schedules = load_schedules();
     let id = workout.id.clone();
