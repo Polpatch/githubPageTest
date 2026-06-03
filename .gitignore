@@ -16,6 +16,7 @@ app/pkg/
 app/index.html#
 app/*.wasm
 app/*.js
+!app/sw.js
 
 # IDE / editor files
 *.swp
