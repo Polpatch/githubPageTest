@@ -10,7 +10,7 @@ use gloo_file::callbacks::{read_as_text, FileReader};
 use gloo_file::File as GlooFile;
 use gloo_net::http::Request;
 use gloo_timers::callback::Interval;
-use models::{TimerState, *};
+use models::{load_user_preferred, save_user_preferred, TimerState, *};
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -212,6 +212,7 @@ fn app() -> Html {
     let session_elapsed         = use_state(|| 0u32);
     let session_elapsed_handle  = use_mut_ref(|| None::<Interval>);
     let desc_expanded           = use_state(|| false);
+    let user_preferred          = use_state(load_user_preferred);
     // ID of the currently active session (empty = no workout loaded)
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
@@ -231,6 +232,14 @@ fn app() -> Html {
     let on_download_schema = Callback::from(|_| {
         trigger_download("workout_schema.json", SCHEDA_SCHEMA);
     });
+
+    let on_set_preferred = {
+        let up = user_preferred.clone();
+        Callback::from(move |file: Option<String>| {
+            save_user_preferred(file.as_deref());
+            up.set(file);
+        })
+    };
 
     let on_import_file = {
         let error         = error.clone();
@@ -1342,6 +1351,8 @@ fn app() -> Html {
                                 catalog_loading={*catalog_loading}
                                 on_load_catalog_entry={on_load_catalog_entry}
                                 on_file_change={on_file_change}
+                                user_preferred={(*user_preferred).clone()}
+                                on_set_preferred={on_set_preferred}
                             />
                         }
                     }

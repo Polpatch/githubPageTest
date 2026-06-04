@@ -260,11 +260,19 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
     let exercise = match &props.exercise { Some(e) => e, None => return html! {} };
 
     // ── Input values ──────────────────────────────────────────────────────────
+    // `_display` = raw stored value, may be empty — used for the input's value= prop
+    //   so the user can freely clear the field without it snapping back.
+    // `_value`   = with fallback — used only for calculations (+/- buttons, saving).
+    let weight_display = props.weight_inputs.get(&exercise_id)
+        .and_then(|v| v.get(clamped)).cloned().unwrap_or_default();
+    let reps_display   = props.reps_inputs.get(&exercise_id)
+        .and_then(|v| v.get(clamped)).cloned().unwrap_or_default();
+
     let weight_value = get_input_with_fallback(&props.weight_inputs, &exercise_id, clamped, "");
     let reps_value   = get_input_with_fallback(&props.reps_inputs,   &exercise_id, clamped, &exercise.reps);
 
     // Hint from last session — shown as placeholder when no weight entered yet
-    let weight_hint: String = if weight_value.is_empty() {
+    let weight_hint: String = if weight_display.is_empty() {
         weight_history_for_exercise(&props.workout_id, &exercise.id)
             .last()
             .map(|p| fmt_weight(p.max_weight))
@@ -287,7 +295,9 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
         })
     };
 
-    let weight_f: f32 = weight_value.parse().unwrap_or(0.0);
+    // When weight field is empty, start +/- from last session's value (the hint).
+    let weight_f: f32 = weight_value.parse()
+        .unwrap_or_else(|_| weight_hint.parse().unwrap_or(0.0));
     let on_weight_minus = {
         let cb = props.on_weight_change.clone(); let eid = exercise_id.clone();
         let val = fmt_weight((weight_f - step).max(0.0));
@@ -299,7 +309,10 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
         Callback::from(move |_: MouseEvent| cb.emit((eid.clone(), clamped, val.clone())))
     };
 
-    let reps_n: i32 = reps_value.parse().unwrap_or(1);
+    // When reps field holds a range like "8-10" (the exercise default), use the
+    // lower bound so +/- starts from a sensible value instead of 1.
+    let reps_n: i32 = reps_value.parse()
+        .unwrap_or_else(|_| parse_reps_range(&reps_value).0.max(1));
     let on_reps_minus = {
         let cb = props.on_reps_change.clone(); let eid = exercise_id.clone();
         let val = (reps_n - 1).max(1).to_string();
@@ -416,7 +429,7 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                             // ── Peso: input above, step buttons below ────────
                             <div class="input-field">
                                 <span class="input-label">{"Peso (kg)"}</span>
-                                <input class="weight-val-input" value={weight_value}
+                                <input class="weight-val-input" value={weight_display}
                                     inputmode="decimal"
                                     placeholder={if weight_hint.is_empty() { "0".to_string() } else { format!("{} (ultima)", weight_hint) }}
                                     oninput={{
@@ -432,8 +445,8 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                                 <div class="step-row">
                                     <button class="step-btn" onclick={on_weight_minus}>{"−"}</button>
                                     <button class="step-selector" onclick={on_cycle_step}
-                                            title="Tocca per cambiare incremento">
-                                        { fmt_weight(step) }
+                                            title="Tocca per cambiare passo">
+                                        { format!("±{} kg", fmt_weight(step)) }
                                     </button>
                                     <button class="step-btn" onclick={on_weight_plus}>{"+"}</button>
                                 </div>
@@ -443,7 +456,7 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                                 <span class="input-label">{"Reps"}</span>
                                 <div class="reps-row">
                                     <button class="step-btn" onclick={on_reps_minus}>{"−"}</button>
-                                    <input class="reps-val-input" value={reps_value}
+                                    <input class="reps-val-input" value={reps_display}
                                         inputmode="numeric" placeholder={exercise.reps.clone()}
                                         oninput={{
                                             let cb = props.on_reps_change.clone();

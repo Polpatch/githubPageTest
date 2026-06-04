@@ -175,9 +175,9 @@
       .catalog-list { display: grid; gap: 12px; margin-top: 16px; }
       .catalog-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; cursor: pointer; transition: box-shadow .2s ease; }
       .catalog-card:hover { box-shadow: 0 12px 30px var(--sh-md); }
-      .catalog-info { display: grid; gap: 4px; }
-      .catalog-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-      .catalog-title { font-weight: 700; }
+      .catalog-info { display: grid; gap: 4px; flex: 1; min-width: 0; }
+      .catalog-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .catalog-title { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .catalog-meta { color: var(--text-3); font-size: 0.92rem; }
       /* Catalog select button */
       .select-button { background: var(--surface-3); color: var(--text); border: 1.5px solid var(--border); border-radius: 999px; padding: 8px 18px; font-size: 0.9rem; font-weight: 600; white-space: nowrap; transition: background .15s; flex-shrink: 0; }
@@ -188,6 +188,9 @@
       .catalog-card--featured { flex-direction: column; align-items: flex-start; gap: 14px; border: 2px solid var(--blue); background: var(--blue-bg); padding: 20px; }
       .catalog-card--featured .catalog-title { font-size: 1.05rem; }
       .catalog-card--featured .select-button { width: 100%; text-align: center; }
+      .star-btn { flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.95rem; color: var(--text-4); transition: color .15s, background .15s; padding: 0; }
+      .star-btn:hover { color: var(--blue); }
+      .star-btn--active { color: var(--blue); }
       .catalog-featured-badge { font-size: 0.72rem; font-weight: 700; color: var(--blue); background: var(--blue-soft); padding: 2px 8px; border-radius: 999px; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
       .workout-details { display: grid; gap: 20px; }
       .workout-meta { background: var(--surface); border-radius: 24px; padding: 24px; box-shadow: 0 14px 34px var(--sh-sm); }
@@ -268,7 +271,7 @@
       .step-row { display: flex; align-items: center; gap: 8px; }
       .step-btn { flex: 1; height: 46px; border-radius: 12px; background: var(--surface-3); border: 1.5px solid var(--border); font-size: 1.4rem; font-weight: 700; color: var(--text-2); cursor: pointer; transition: background .1s; }
       .step-btn:active { background: var(--border); }
-      .step-selector { flex-shrink: 0; min-width: 72px; height: 46px; border-radius: 12px; background: var(--blue-bg); border: 1.5px solid var(--blue-ring); color: var(--blue); font-size: 1rem; font-weight: 700; cursor: pointer; transition: background .1s; }
+      .step-selector { flex-shrink: 0; min-width: 82px; height: 46px; border-radius: 12px; background: var(--blue-bg); border: 1.5px solid var(--blue-ring); color: var(--blue); font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: background .1s; letter-spacing: 0.01em; }
       .step-selector:active { background: var(--blue-soft); }
       .reps-row { display: flex; align-items: center; gap: 8px; }
       .reps-val-input { flex: 1; min-width: 0; height: 48px; text-align: center; padding: 0 8px; border-radius: 12px; border: 1.5px solid var(--border-2); font-size: 1.2rem; font-weight: 700; color: var(--text); background: var(--surface); }

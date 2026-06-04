@@ -91,6 +91,19 @@ fn new_id() -> String {
     (JsDate::now() as u64).to_string()
 }
 
+// ── User preferred scheda ────────────────────────────────────────────────────
+
+pub fn load_user_preferred() -> Option<String> {
+    LocalStorage::get::<String>("user_preferred_scheda").ok()
+}
+
+pub fn save_user_preferred(file: Option<&str>) {
+    match file {
+        Some(f) => { let _ = LocalStorage::set("user_preferred_scheda", f); }
+        None    => { LocalStorage::delete("user_preferred_scheda"); }
+    }
+}
+
 // ── Schedule storage ─────────────────────────────────────────────────────────
 
 pub fn load_schedules() -> Vec<Workout> {
