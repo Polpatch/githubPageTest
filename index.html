@@ -34,8 +34,8 @@
     <!-- Trunk build -->
     
 <script type="module">
-import init, * as bindings from './fitness_wasm-ccc26391f65c1941.js';
-const wasm = await init({ module_or_path: './fitness_wasm-ccc26391f65c1941_bg.wasm' });
+import init, * as bindings from './fitness_wasm-1bbfdee33695d018.js';
+const wasm = await init({ module_or_path: './fitness_wasm-1bbfdee33695d018_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -172,7 +172,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       button { background: transparent; border: none; cursor: pointer; font-family: inherit; font-size: inherit; color: inherit; padding: 0; }
       body { margin: 0; min-height: 100vh; }
       .app-shell { max-width: 980px; margin: 0 auto; padding: 20px; }
-      .app-shell--timer { padding-top: 96px; }
+      .app-shell.app-shell--timer { padding-top: 96px; }
       .app-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 24px; }
       .app-header h1 { margin: 0 0 6px; font-size: clamp(1.8rem, 2.5vw, 2.8rem); }
       .app-header p { margin: 0; color: var(--text-2); max-width: 640px; }
@@ -203,6 +203,9 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       .workout-details { display: grid; gap: 20px; }
       .workout-meta { background: var(--surface); border-radius: 24px; padding: 24px; box-shadow: 0 14px 34px var(--sh-sm); }
       .meta-label { font-size: 0.95rem; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+      .meta-desc { margin: 0 0 8px; color: var(--text-2); font-size: 0.9rem; line-height: 1.55; }
+      .meta-desc--clamped { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+      .meta-expand-btn { font-size: 0.82rem; color: var(--blue); display: block; margin-bottom: 8px; }
       .meta-desc { margin: 0; color: var(--text-2); }
       .meta-tag { display: inline-block; margin-top: 14px; background: var(--blue-bg); color: var(--blue); padding: 8px 14px; border-radius: 999px; font-size: 0.88rem; }
       .day-tabs { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -216,7 +219,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       .exercise-card:not(.selected) .exercise-meta,
       .exercise-card:not(.selected) .exercise-rec { display: none; }
       .exercise-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
-      .chart-icon-btn { flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 1.1rem; opacity: 0.55; padding: 2px 4px; border-radius: 8px; transition: opacity .15s, background .15s; }
+      .chart-icon-btn { flex-shrink: 0; background: none; border: none; cursor: pointer; font-size: 1.1rem; opacity: 0.55; padding: 2px 4px; border-radius: 8px; transition: opacity .15s, background .15s; display: inline-flex; align-items: center; }
       .chart-icon-btn:hover { opacity: 1; background: var(--surface-3); }
       .weight-chart-section { margin: 12px 0 4px; padding: 12px 10px 6px; background: var(--surface-2); border-radius: 16px; border: 1px solid var(--border); }
       .chart-empty { font-size: 0.88rem; color: var(--text-4); margin: 0; padding: 8px 0; }
@@ -234,7 +237,8 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       .exercise-note { margin: 14px 0 0; color: var(--text-2); background: var(--amber-bg); padding: 14px 16px; border-radius: 16px; border: 1px solid var(--amber-border); }
       .expanded-body { margin-top: 20px; }
       .series-progress { display: flex; align-items: center; justify-content: center; padding: 0 12%; margin-bottom: 20px; }
-      .series-dot { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--surface-3); border: 2px solid var(--border-2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: var(--text-4); transition: all .15s ease; padding: 0; }
+      .series-dot { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--surface-3); border: 2px solid var(--border-2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: var(--text-4); transition: all .15s ease; padding: 0; position: relative; }
+      .dot-arrow { position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); font-size: 0.42rem; line-height: 1; pointer-events: none; }
       .series-dot:hover { border-color: var(--blue-hover); color: var(--blue); }
       .series-dot.active { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); box-shadow: 0 0 0 3px var(--blue-glow); }
       .series-dot.completed { background: var(--blue); border-color: var(--blue-dk); color: white; }
@@ -284,6 +288,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       .action-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
       .primary-button, .secondary-button { border: 0; border-radius: 999px; padding: 12px 20px; cursor: pointer; font-weight: 600; }
       .primary-button  { background: var(--btn-primary-bg); color: var(--btn-primary-fg); }
+      .primary-button:disabled { opacity: 0.38; cursor: not-allowed; }
       .secondary-button { background: var(--surface-3); color: var(--text); }
       .timer-toast { position: fixed; top: 12px; left: 12px; right: 12px; z-index: 150; height: 64px; background: var(--surface); border-radius: 18px; box-shadow: 0 4px 24px var(--sh-xl), 0 1px 6px var(--sh-md); display: flex; align-items: center; gap: 14px; padding: 0 20px; }
       .timer-toast-label { flex: 1; font-size: 0.95rem; font-weight: 600; color: var(--text-2); }
@@ -312,7 +317,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       .menu-modal { background: var(--surface); width: 300px; max-width: 88vw; height: 100vh; padding: 28px 24px; box-shadow: 4px 0 32px var(--sh-lg); display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
       .menu-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
       .menu-modal-title { font-size: 1.15rem; font-weight: 700; }
-      .menu-close-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-3); padding: 4px 8px; border-radius: 8px; }
+      .menu-close-btn { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: var(--text-3); padding: 4px 8px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; }
       .menu-close-btn:hover { background: var(--surface-3); color: var(--text); }
       .menu-section-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-4); margin: 16px 0 8px; }
       .menu-action-btn { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; cursor: pointer; font-size: 0.95rem; font-weight: 600; color: var(--text); text-align: left; transition: background .15s; }
@@ -389,7 +394,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       .video-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 300; display: flex; align-items: center; justify-content: center; padding: 20px; }
       .video-modal { width: 100%; max-width: 560px; }
       .video-iframe-wrapper { position: relative; padding-top: 56.25%; border-radius: 14px; overflow: hidden; background: #000; }
-      .video-icon-btn { flex-shrink: 0; background: var(--blue-bg); border: none; cursor: pointer; font-size: 0.85rem; color: var(--blue); padding: 4px 8px; border-radius: 8px; font-weight: 700; transition: background .15s; line-height: 1; }
+      .video-icon-btn { flex-shrink: 0; background: var(--blue-bg); border: none; cursor: pointer; font-size: 1rem; color: var(--blue); padding: 4px 8px; border-radius: 8px; transition: background .15s; display: inline-flex; align-items: center; }
       .video-icon-btn:hover { background: var(--blue-soft); }
       /* Local data indicator in menu */
       .local-data-indicator { display: flex; align-items: center; gap: 8px; margin-top: 16px; padding: 10px 0; font-size: 0.85rem; color: var(--text-3); border-top: 1px solid var(--border); }
@@ -401,7 +406,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         .input-row { grid-template-columns: 1fr; }
       }
     </style>
-  <link rel="modulepreload" href="./fitness_wasm-ccc26391f65c1941.js" crossorigin="anonymous" integrity="sha384-a5BuhYERTsYcJzC1PYVJEBNG3+Pb9prvhz9rxLOgAUsiV/pT1ponYDIlKwvP3zIC"><link rel="preload" href="./fitness_wasm-ccc26391f65c1941_bg.wasm" crossorigin="anonymous" integrity="sha384-dXVKdAuodRBEy3lUMOKbez0aJzjuzGOIjmamjm/KaMIvxc9KCUd95pmcUA1RMDFf" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="./fitness_wasm-1bbfdee33695d018.js" crossorigin="anonymous" integrity="sha384-8JU4eyODY4oPXDB4611hE45k0K6uFi84b7mN+AaJl8ZaSGMg8RaU+rr/XVUUH0HQ"><link rel="preload" href="./fitness_wasm-1bbfdee33695d018_bg.wasm" crossorigin="anonymous" integrity="sha384-b0yS2Tb85JxQb76eClmwxGPlT/dqUcm36tPBAiHXd4dM+SnnEfYRt6r/ISvBbvYF" as="fetch" type="application/wasm"></head>
   <body>
     <div id="root"></div>
   </body>
