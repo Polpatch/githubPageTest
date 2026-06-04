@@ -32,16 +32,13 @@ fn handle_drag_move(
 
 #[derive(Properties, PartialEq)]
 pub struct ProgressBarProps {
-    /// Number of sets for this exercise.
     pub n: u32,
-    /// Completion state per set index (true = already done).
     pub dot_done: Vec<bool>,
-    /// Currently active set index (0-based, clamped).
     pub active: usize,
-    /// Called with the new index when the user taps a dot.
     pub on_select: Callback<usize>,
-    /// Index of the dot that was just saved (triggers pulse animation).
     pub just_saved: Option<usize>,
+    /// Per-set reps hint: Some(-1) = under target, Some(1) = over target, Some(0)/None = ok / not done.
+    pub dot_reps_hint: Vec<Option<i8>>,
 }
 
 #[function_component(ProgressBar)]
@@ -142,28 +139,37 @@ pub fn progress_bar(props: &ProgressBarProps) -> Html {
 
     // ── Dot factory ────────────────────────────────────────────────────────
     let make_dot = {
-        let dot_done   = props.dot_done.clone();
-        let active     = props.active;
-        let on_select  = props.on_select.clone();
-        let just_saved = props.just_saved;
+        let dot_done      = props.dot_done.clone();
+        let dot_reps_hint = props.dot_reps_hint.clone();
+        let active        = props.active;
+        let on_select     = props.on_select.clone();
+        let just_saved    = props.just_saved;
         move |idx: usize| -> Html {
             let is_done       = dot_done.get(idx).copied().unwrap_or(false);
             let is_active     = active == idx;
             let is_just_saved = just_saved == Some(idx);
             let on_sel        = on_select.clone();
+            let arrow = match dot_reps_hint.get(idx).copied().flatten() {
+                Some(h) if h < 0 => html! { <span class="dot-arrow">{"↓"}</span> },
+                Some(h) if h > 0 => html! { <span class="dot-arrow">{"↑"}</span> },
+                _ => html! {},
+            };
             html! {
                 <button
                     class={classes!(
                         "series-dot",
-                        if is_done       { Some("completed")           } else { None },
-                        if is_active     { Some("active")              } else { None },
+                        if is_done       { Some("completed")              } else { None },
+                        if is_active     { Some("active")                 } else { None },
                         if is_just_saved { Some("series-dot--just-saved") } else { None }
                     )}
                     onclick={Callback::from(move |e: MouseEvent| {
                         e.stop_propagation();
                         on_sel.emit(idx);
                     })}
-                >{ (idx + 1).to_string() }</button>
+                >
+                    { (idx + 1).to_string() }
+                    { arrow }
+                </button>
             }
         }
     };

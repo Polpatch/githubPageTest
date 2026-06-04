@@ -486,3 +486,17 @@ pub fn import_all_data(json: &str) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Parse a reps target string like "8-10" or "12" into (min, max).
+pub fn parse_reps_range(reps: &str) -> (i32, i32) {
+    let clean = reps.trim();
+    if let Some((a, b)) = clean.split_once('-') {
+        let lo = a.trim().parse().unwrap_or(0);
+        let hi = b.trim().parse().unwrap_or(lo);
+        (lo, hi)
+    } else {
+        let n = clean.parse().unwrap_or(0);
+        (n, n)
+    }
+}
+
