@@ -2,6 +2,7 @@ mod components;
 mod models;
 
 use components::bottom_sheet::BottomSheet;
+use components::calendar::Calendar;
 use components::catalog_panel::CatalogPanel;
 use components::day_tabs::DayTabs;
 use components::exercise_card::ExerciseCard;
@@ -1043,6 +1044,131 @@ fn app() -> Html {
         })
     };
 
+    // ── Calendar: select session from dot / CTA ──────────────────────────────
+    let on_select_session_meta = {
+        let workout            = workout.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
+        let current_session_id = current_session_id.clone();
+        let viewing_history    = viewing_history.clone();
+        let resume_candidates  = resume_candidates.clone();
+        let error              = error.clone();
+        Callback::from(move |meta: SessionMeta| {
+            let Some(data) = load_schedules().into_iter().find(|w| w.id == meta.workout_id)
+                else { return };
+            let day_idx = data.giorni.iter().position(|d| d.giorno == meta.day).unwrap_or(0);
+            if meta.done {
+                if let Some(session) = find_session_by_id(&meta.workout_id, &meta.id) {
+                    let (wi, ri) = inputs_from_sets(&session.sets);
+                    day_index.set(day_idx);
+                    selected_exercise.set(session.active_exercise);
+                    saved_sets.set(session.sets.clone());
+                    weight_inputs.set(wi);
+                    reps_inputs.set(ri);
+                    current_session_id.set(session.id.clone());
+                    viewing_history.set(true);
+                    workout.set(Some(data));
+                    error.set(None);
+                }
+            } else {
+                let day = data.giorni.get(day_idx).map(|d| d.giorno.clone()).unwrap_or_default();
+                let open_day = open_sessions_for_day(&data.id, &day);
+                match open_day.len() {
+                    1 => {
+                        if let Some((sid, sets, active_ex)) = find_open_session(&data.id, &day) {
+                            let (wi, ri) = inputs_from_sets(&sets);
+                            day_index.set(day_idx);
+                            selected_exercise.set(active_ex);
+                            saved_sets.set(sets);
+                            weight_inputs.set(wi);
+                            reps_inputs.set(ri);
+                            current_session_id.set(sid);
+                        }
+                        workout.set(Some(data));
+                        error.set(None);
+                    }
+                    0 => {
+                        day_index.set(day_idx);
+                        selected_exercise.set(0);
+                        saved_sets.set(vec![]);
+                        weight_inputs.set(HashMap::new());
+                        reps_inputs.set(HashMap::new());
+                        current_session_id.set(String::new());
+                        workout.set(Some(data));
+                        error.set(None);
+                    }
+                    _ => {
+                        day_index.set(day_idx);
+                        weight_inputs.set(HashMap::new());
+                        reps_inputs.set(HashMap::new());
+                        resume_candidates.set(open_day);
+                        workout.set(Some(data));
+                        error.set(None);
+                    }
+                }
+            }
+        })
+    };
+
+    let on_open_suggestion = {
+        let workout            = workout.clone();
+        let catalog            = catalog.clone();
+        let user_preferred     = user_preferred.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let weight_inputs      = weight_inputs.clone();
+        let reps_inputs        = reps_inputs.clone();
+        let current_session_id = current_session_id.clone();
+        let resume_candidates  = resume_candidates.clone();
+        let error              = error.clone();
+        Callback::from(move |_| {
+            let sessions  = load_sessions_index();
+            let schedules = load_schedules();
+            let Some((data, day_idx)) = compute_suggestion_workout(
+                &sessions, &schedules, &catalog, &user_preferred,
+            ) else { return };
+            let day = data.giorni.get(day_idx).map(|d| d.giorno.clone()).unwrap_or_default();
+            let open_day = open_sessions_for_day(&data.id, &day);
+            match open_day.len() {
+                1 => {
+                    if let Some((sid, sets, active_ex)) = find_open_session(&data.id, &day) {
+                        let (wi, ri) = inputs_from_sets(&sets);
+                        day_index.set(day_idx);
+                        selected_exercise.set(active_ex);
+                        saved_sets.set(sets);
+                        weight_inputs.set(wi);
+                        reps_inputs.set(ri);
+                        current_session_id.set(sid);
+                    }
+                    workout.set(Some(data));
+                    error.set(None);
+                }
+                0 => {
+                    day_index.set(day_idx);
+                    selected_exercise.set(0);
+                    saved_sets.set(vec![]);
+                    weight_inputs.set(HashMap::new());
+                    reps_inputs.set(HashMap::new());
+                    current_session_id.set(String::new());
+                    workout.set(Some(data));
+                    error.set(None);
+                }
+                _ => {
+                    day_index.set(day_idx);
+                    weight_inputs.set(HashMap::new());
+                    reps_inputs.set(HashMap::new());
+                    resume_candidates.set(open_day);
+                    workout.set(Some(data));
+                    error.set(None);
+                }
+            }
+        })
+    };
+
     // ── Wake Lock ────────────────────────────────────────────────────────────
     // Acquire when a workout is loaded, release when the user exits.
     {
@@ -1156,6 +1282,16 @@ fn app() -> Html {
             format!("{:.2}", CIRCUM)
         }
     };
+
+    // Pre-compute calendar data (only when on catalog screen to avoid unnecessary reads)
+    let cal_all_sessions = if workout.is_none() { load_sessions_index() } else { vec![] };
+    let cal_open_session = cal_all_sessions.iter()
+        .filter(|s| !s.done)
+        .max_by_key(|s| &s.updated)
+        .cloned();
+    let cal_suggestion = if workout.is_none() {
+        compute_suggestion(&cal_all_sessions, &load_schedules(), &catalog, &user_preferred)
+    } else { None };
 
     // Pre-compute selected exercise for bottom sheet
     let sheet_exercise: Option<crate::models::Exercise> = workout.as_ref()
@@ -1346,6 +1482,14 @@ fn app() -> Html {
                         } // close else (not resume dialog)
                     } else {
                         html! {
+                            <>
+                            <Calendar
+                                sessions={cal_all_sessions}
+                                open_session={cal_open_session}
+                                suggestion={cal_suggestion}
+                                on_select_session={on_select_session_meta.clone()}
+                                on_open_suggestion={on_open_suggestion.clone()}
+                            />
                             <CatalogPanel
                                 catalog={(*catalog).clone()}
                                 catalog_loading={*catalog_loading}
@@ -1354,6 +1498,7 @@ fn app() -> Html {
                                 user_preferred={(*user_preferred).clone()}
                                 on_set_preferred={on_set_preferred}
                             />
+                            </>
                         }
                     }
                 }
