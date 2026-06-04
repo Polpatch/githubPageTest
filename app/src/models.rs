@@ -500,6 +500,78 @@ pub fn import_all_data(json: &str) -> Result<(), String> {
     Ok(())
 }
 
+// ── Calendar / suggestion ────────────────────────────────────────────────────
+
+/// Display info shown on the calendar's "next workout" CTA button.
+#[derive(Clone, PartialEq)]
+pub struct SuggestionInfo {
+    pub workout_nome: String,
+    pub day_label: String,
+}
+
+pub fn find_session_by_id(workout_id: &str, session_id: &str) -> Option<Session> {
+    load_sessions(workout_id).into_iter().find(|s| s.id == session_id)
+}
+
+/// Returns (Workout, day_index) for the next suggested training based on the
+/// preferred scheda. Bridges catalog entry → workout via `nome` field matching.
+/// Falls back to day 0 when: no sessions for this scheda, or last session > 30 days ago.
+pub fn compute_suggestion_workout(
+    sessions: &[SessionMeta],
+    schedules: &[Workout],
+    catalog: &[CatalogEntry],
+    user_preferred: &Option<String>,
+) -> Option<(Workout, usize)> {
+    let pref = match user_preferred {
+        Some(file) => catalog.iter().find(|e| &e.file == file),
+        None       => catalog.iter().find(|e| e.preferita.unwrap_or(false)),
+    }?;
+
+    // Fuzzy match: exact nome, or one is a prefix of the other.
+    // Handles cases where catalog.json uses a shorter display name than the
+    // full nome in the workout JSON (e.g. "Scheda X" vs "Scheda X (v2)").
+    let workout = schedules.iter().find(|w| {
+        w.nome == pref.nome
+            || w.nome.starts_with(pref.nome.as_str())
+            || pref.nome.starts_with(w.nome.as_str())
+    })?.clone();
+
+    let mut done: Vec<&SessionMeta> = sessions.iter()
+        .filter(|s| s.done && s.workout_id == workout.id)
+        .collect();
+    done.sort_by(|a, b| a.started.cmp(&b.started));
+
+    let day_idx = if let Some(last) = done.last() {
+        let days_ago = (JsDate::now() - JsDate::parse(&last.started)) / 86_400_000.0;
+        if days_ago > 30.0 {
+            0
+        } else {
+            let cur = workout.giorni.iter().position(|d| d.giorno == last.day).unwrap_or(0);
+            (cur + 1) % workout.giorni.len().max(1)
+        }
+    } else {
+        0
+    };
+
+    Some((workout, day_idx))
+}
+
+pub fn compute_suggestion(
+    sessions: &[SessionMeta],
+    schedules: &[Workout],
+    catalog: &[CatalogEntry],
+    user_preferred: &Option<String>,
+) -> Option<SuggestionInfo> {
+    let (workout, day_idx) = compute_suggestion_workout(sessions, schedules, catalog, user_preferred)?;
+    let day = workout.giorni.get(day_idx)?;
+    Some(SuggestionInfo {
+        workout_nome: workout.nome.clone(),
+        day_label: day.etichetta.clone().unwrap_or_else(|| day.giorno.clone()),
+    })
+}
+
+// ── Reps helpers ─────────────────────────────────────────────────────────────
+
 /// Parse a reps target string like "8-10" or "12" into (min, max).
 pub fn parse_reps_range(reps: &str) -> (i32, i32) {
     let clean = reps.trim();
