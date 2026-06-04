@@ -210,6 +210,7 @@ fn app() -> Html {
     let expand_trigger          = use_state(|| 0usize);
     let session_elapsed         = use_state(|| 0u32);
     let session_elapsed_handle  = use_mut_ref(|| None::<Interval>);
+    let desc_expanded           = use_state(|| false);
     // ID of the currently active session (empty = no workout loaded)
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
@@ -900,6 +901,7 @@ fn app() -> Html {
         let show_completion        = show_completion.clone();
         let session_elapsed        = session_elapsed.clone();
         let session_elapsed_handle = session_elapsed_handle.clone();
+        let desc_expanded          = desc_expanded.clone();
         Rc::new(move || {
             timer_handle.borrow_mut().take();
             timer_running.set(false);
@@ -918,6 +920,7 @@ fn app() -> Html {
             resume_candidates.set(vec![]);
             viewing_history.set(false);
             show_completion.set(false);
+            desc_expanded.set(false);
         })
     };
 
@@ -1248,7 +1251,19 @@ fn app() -> Html {
                                 <section class="workout-meta">
                                     <div class="meta-label">{ format!("Scheda: {}", workout_data.nome) }</div>
                                     if let Some(desc) = &workout_data.descrizione {
-                                        <p class="meta-desc">{ desc.clone() }</p>
+                                        if desc.len() > 100 {
+                                            <p class={if *desc_expanded { "meta-desc" } else { "meta-desc meta-desc--clamped" }}>
+                                                { desc.clone() }
+                                            </p>
+                                            <button class="meta-expand-btn" onclick={{
+                                                let de = desc_expanded.clone();
+                                                Callback::from(move |_: MouseEvent| de.set(!*de))
+                                            }}>
+                                                { if *desc_expanded { "Mostra meno ↑" } else { "Mostra di più ↓" } }
+                                            </button>
+                                        } else {
+                                            <p class="meta-desc">{ desc.clone() }</p>
+                                        }
                                     }
                                     if let Some(cat) = &workout_data.categoria {
                                         <div class="meta-tag">{ cat.clone() }</div>
