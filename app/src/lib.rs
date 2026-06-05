@@ -214,6 +214,9 @@ fn app() -> Html {
     let session_elapsed_handle  = use_mut_ref(|| None::<Interval>);
     let desc_expanded           = use_state(|| false);
     let user_preferred          = use_state(load_user_preferred);
+    let cardio_elapsed          = use_state(|| 0u32);
+    let cardio_running          = use_state(|| false);
+    let cardio_handle           = use_mut_ref(|| None::<Interval>);
     // ID of the currently active session (empty = no workout loaded)
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
@@ -497,7 +500,25 @@ fn app() -> Html {
     let on_select_exercise = {
         let selected_exercise = selected_exercise.clone();
         let expand_trigger    = expand_trigger.clone();
+        let cardio_elapsed    = cardio_elapsed.clone();
+        let cardio_running    = cardio_running.clone();
+        let cardio_handle     = cardio_handle.clone();
+        let workout           = workout.clone();
+        let day_index         = day_index.clone();
+        let saved_sets        = saved_sets.clone();
         Callback::from(move |idx: usize| {
+            cardio_handle.borrow_mut().take();
+            cardio_running.set(false);
+            // Restore saved duration if this is a completed cardio exercise
+            let restored = workout.as_ref()
+                .and_then(|w| w.giorni.get(*day_index))
+                .and_then(|d| d.esercizi.get(idx))
+                .filter(|e| e.tipo.as_deref() == Some("cardio"))
+                .and_then(|e| saved_sets.iter().find(|s| s.exercise_id == e.id && s.set_number == 1))
+                .and_then(|s| s.durata_min)
+                .map(|m| m * 60)
+                .unwrap_or(0);
+            cardio_elapsed.set(restored);
             selected_exercise.set(idx);
             expand_trigger.set(*expand_trigger + 1);
         })
@@ -512,7 +533,13 @@ fn app() -> Html {
         let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
         let resume_candidates  = resume_candidates.clone();
+        let cardio_elapsed     = cardio_elapsed.clone();
+        let cardio_running     = cardio_running.clone();
+        let cardio_handle      = cardio_handle.clone();
         Callback::from(move |idx: usize| {
+            cardio_handle.borrow_mut().take();
+            cardio_running.set(false);
+            cardio_elapsed.set(0);
             day_index.set(idx);
             if let Some(w) = &*workout {
                 if let Some(day) = w.giorni.get(idx) {
@@ -586,7 +613,7 @@ fn app() -> Html {
                             .cloned();
                         let list = upsert_completed_set(
                             (*saved_sets).clone(), exercise,
-                            (set_index + 1) as u32, peso, reps,
+                            (set_index + 1) as u32, peso, reps, None,
                         );
 
                         let current_idx = *selected_exercise;
@@ -618,6 +645,79 @@ fn app() -> Html {
                     }
                 }
             }
+        })
+    };
+
+    // ── Cardio stopwatch: toggle (start / pause / resume) ───────────────────
+    let on_cardio_toggle = {
+        let cardio_elapsed = cardio_elapsed.clone();
+        let cardio_running = cardio_running.clone();
+        let cardio_handle  = cardio_handle.clone();
+        Callback::from(move |_: ()| {
+            if *cardio_running {
+                cardio_handle.borrow_mut().take();
+                cardio_running.set(false);
+            } else {
+                let start = *cardio_elapsed;
+                let count = Rc::new(Cell::new(start));
+                let count2 = count.clone();
+                let ce = cardio_elapsed.clone();
+                let h = Interval::new(1000, move || {
+                    let next = count2.get() + 1;
+                    count2.set(next);
+                    ce.set(next);
+                });
+                *cardio_handle.borrow_mut() = Some(h);
+                cardio_running.set(true);
+            }
+        })
+    };
+
+    // ── Cardio stopwatch: stop + save ────────────────────────────────────────
+    let on_cardio_stop = {
+        let workout            = workout.clone();
+        let day_index          = day_index.clone();
+        let selected_exercise  = selected_exercise.clone();
+        let saved_sets         = saved_sets.clone();
+        let current_session_id = current_session_id.clone();
+        let cardio_elapsed     = cardio_elapsed.clone();
+        let cardio_running     = cardio_running.clone();
+        let cardio_handle      = cardio_handle.clone();
+        Callback::from(move |_: ()| {
+            cardio_handle.borrow_mut().take();
+            cardio_running.set(false);
+            let elapsed = *cardio_elapsed;
+            if let Some(workout) = &*workout {
+                if let Some(day) = workout.giorni.get(*day_index) {
+                    if let Some(exercise) = day.esercizi.get(*selected_exercise) {
+                        let durata_min = Some(elapsed / 60);
+                        let list = upsert_completed_set(
+                            (*saved_sets).clone(), exercise, 1, None, None, durata_min,
+                        );
+                        let current_idx = *selected_exercise;
+                        let ex_done = list.iter()
+                            .filter(|s| s.exercise_id == exercise.id)
+                            .count() >= exercise.serie as usize;
+                        let next_active = if ex_done {
+                            let next = next_incomplete_exercise(day, &list, current_idx);
+                            if next != current_idx { selected_exercise.set(next); }
+                            next
+                        } else { current_idx };
+                        let sid = {
+                            let cur = (*current_session_id).clone();
+                            if cur.is_empty() {
+                                let new_sid = create_session_for_day(workout, *day_index);
+                                current_session_id.set(new_sid.clone());
+                                new_sid
+                            } else { cur }
+                        };
+                        let total = total_day_sets(workout, &day.giorno);
+                        update_session_sets(&workout.id, &sid, &list, next_active, total);
+                        saved_sets.set(list);
+                    }
+                }
+            }
+            cardio_elapsed.set(0);
         })
     };
 
@@ -674,7 +774,7 @@ fn app() -> Html {
                             .and_then(|v| v.get(next_idx))
                             .cloned();
                         let list = upsert_completed_set(
-                            (*saved_sets).clone(), exercise, next_set, peso, reps,
+                            (*saved_sets).clone(), exercise, next_set, peso, reps, None,
                         );
                         let current_idx = *selected_exercise;
                         let ex_done = list.iter()
@@ -779,7 +879,7 @@ fn app() -> Html {
                                                 .cloned();
                                             let list = upsert_completed_set(
                                                 (*saved_sets_for_timer).clone(),
-                                                exercise, next_set, peso, reps,
+                                                exercise, next_set, peso, reps, None,
                                             );
 
                                             let current_idx = *selected_ex_for_timer;
@@ -913,11 +1013,17 @@ fn app() -> Html {
         let session_elapsed        = session_elapsed.clone();
         let session_elapsed_handle = session_elapsed_handle.clone();
         let desc_expanded          = desc_expanded.clone();
+        let cardio_elapsed         = cardio_elapsed.clone();
+        let cardio_running         = cardio_running.clone();
+        let cardio_handle          = cardio_handle.clone();
         Rc::new(move || {
             timer_handle.borrow_mut().take();
             timer_running.set(false);
             timer_left.set(0);
             timer_total.set(0);
+            cardio_handle.borrow_mut().take();
+            cardio_running.set(false);
+            cardio_elapsed.set(0);
             session_elapsed_handle.borrow_mut().take();
             session_elapsed.set(0);
             workout.set(None);
@@ -1525,6 +1631,10 @@ fn app() -> Html {
                 selected_exercise_idx={*selected_exercise}
                 on_select_exercise={on_select_exercise.clone()}
                 expand_trigger={*expand_trigger}
+                cardio_elapsed={*cardio_elapsed}
+                cardio_running={*cardio_running}
+                on_cardio_toggle={on_cardio_toggle}
+                on_cardio_stop={on_cardio_stop}
             />
 
             // ── Burger menu modal ────────────────────────────────────────────

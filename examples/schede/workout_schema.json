@@ -30,7 +30,9 @@
                 "reps": { "type": "string", "description": "Ripetizioni (es. 8-10 o AMRAP)" },
                 "recupero": { "type": ["integer", "null"], "minimum": 0, "description": "Recupero in secondi (opzionale)" },
                 "video": { "type": ["string", "null"], "format": "uri", "description": "URL al video (es. YouTube) dell'esercizio (opzionale)" },
-                "note": { "type": ["string", "null"], "description": "Note opzionali" }
+                "note": { "type": ["string", "null"], "description": "Note opzionali" },
+                "tipo": { "type": ["string", "null"], "enum": ["cardio", null], "description": "Tipo esercizio: 'cardio' per tapis roulant/cyclette, omesso per esercizi con peso" },
+                "durata": { "type": ["integer", "null"], "minimum": 1, "description": "Durata target in minuti (opzionale, solo per esercizi cardio)" }
               },
               "additionalProperties": false
             }

@@ -42,6 +42,14 @@ pub fn exercise_card(props: &ExerciseCardProps) -> Html {
         Callback::from(move |_: MouseEvent| on_select.emit(()))
     };
 
+    let is_cardio = exercise.tipo.as_deref() == Some("cardio");
+
+    let cardio_done_mins: Option<u32> = if is_cardio {
+        props.saved_sets.iter()
+            .find(|s| s.exercise_id == exercise.id && s.set_number == 1)
+            .and_then(|s| s.durata_min)
+    } else { None };
+
     html! {
         <article
             class={classes!("exercise-card", if props.is_selected { Some("selected") } else { None })}
@@ -51,16 +59,21 @@ pub fn exercise_card(props: &ExerciseCardProps) -> Html {
                 <div>
                     <h3>{ &exercise.nome }</h3>
                     <div class="exercise-meta">
-                        { format!("{} serie · {}", exercise.serie, exercise.reps) }
+                        if is_cardio {
+                            { format!("Cardio · {}", exercise.reps) }
+                        } else {
+                            { format!("{} serie · {}", exercise.serie, exercise.reps) }
+                        }
                     </div>
                 </div>
             </div>
-            if exercise.recupero.is_some() {
-                <div class="exercise-rec">
-                    { format!("Recupero: {}s", exercise.recupero.unwrap_or(0)) }
-                </div>
+            if !is_cardio {
+                if exercise.recupero.is_some() {
+                    <div class="exercise-rec">
+                        { format!("Recupero: {}s", exercise.recupero.unwrap_or(0)) }
+                    </div>
+                }
             }
-            // Read-only progress bar (tapping a dot selects the exercise)
             <ProgressBar
                 n={exercise.serie}
                 dot_done={dot_done}
@@ -71,6 +84,9 @@ pub fn exercise_card(props: &ExerciseCardProps) -> Html {
                     Callback::from(move |_: usize| on_sel.emit(()))
                 }}
             />
+            if let Some(mins) = cardio_done_mins {
+                <div class="cardio-done-tag">{ format!("{}min registrati", mins) }</div>
+            }
         </article>
     }
 }

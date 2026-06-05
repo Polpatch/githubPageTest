@@ -161,6 +161,11 @@ pub struct BottomSheetProps {
     pub on_select_exercise:    Callback<usize>,
     /// Increments every time the user taps an exercise card — forces sheet open.
     pub expand_trigger: usize,
+    /// Cardio stopwatch state (seconds elapsed, running flag, callbacks).
+    pub cardio_elapsed:   u32,
+    pub cardio_running:   bool,
+    pub on_cardio_toggle: Callback<()>,
+    pub on_cardio_stop:   Callback<()>,
 }
 
 #[function_component(BottomSheet)]
@@ -258,6 +263,9 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
 
     // ── Early return when no exercise ─────────────────────────────────────────
     let exercise = match &props.exercise { Some(e) => e, None => return html! {} };
+
+    let is_cardio   = exercise.tipo.as_deref() == Some("cardio");
+    let cardio_done = completed_count > 0;
 
     // ── Input values ──────────────────────────────────────────────────────────
     // `_display` = raw stored value, may be empty — used for the input's value= prop
@@ -373,7 +381,19 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                 <div class="sheet-handle-pill"></div>
                 <span class="sheet-ex-name">{ &exercise.nome }</span>
                 <span class="sheet-progress-mini">
-                    { format!("{} / {}", completed_count, n) }
+                    if is_cardio {
+                        {
+                            if props.cardio_running || props.cardio_elapsed > 0 {
+                                format!("{:02}:{:02}", props.cardio_elapsed / 60, props.cardio_elapsed % 60)
+                            } else if cardio_done {
+                                "Fatto".to_string()
+                            } else {
+                                "–".to_string()
+                            }
+                        }
+                    } else {
+                        { format!("{} / {}", completed_count, n) }
+                    }
                 </span>
                 if video_embed.is_some() {
                     <button class="video-icon-btn" title="Guarda video esercizio"
@@ -385,81 +405,104 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                             })
                         }}>{ icon_play() }</button>
                 }
-                <button class="chart-icon-btn" title="Grafico avanzamento peso"
-                    onclick={{
-                        let co = chart_open.clone();
-                        Callback::from(move |e: MouseEvent| {
-                            e.stop_propagation();
-                            co.set(!*co);
-                        })
-                    }}>{ icon_chart() }</button>
+                if !is_cardio {
+                    <button class="chart-icon-btn" title="Grafico avanzamento peso"
+                        onclick={{
+                            let co = chart_open.clone();
+                            Callback::from(move |e: MouseEvent| {
+                                e.stop_propagation();
+                                co.set(!*co);
+                            })
+                        }}>{ icon_chart() }</button>
+                }
             </div>
 
             // ── Expandable content ────────────────────────────────────────
             if *expanded {
-                <div class="sheet-content" key={exercise_id.clone()}>
-                    if *chart_open {
-                        <div class="weight-chart-section">
-                            { render_weight_chart(&chart_points) }
-                        </div>
-                    }
-
-                    <ProgressBar
-                        n={exercise.serie}
-                        dot_done={dot_done.clone()}
-                        dot_reps_hint={dot_reps_hint.clone()}
-                        active={clamped}
-                        just_saved={*just_saved}
-                        on_select={{
-                            let asc = active_set.clone();
-                            Callback::from(move |idx: usize| asc.set(idx))
-                        }}
-                    />
-
-                    <div class="series-row">
-                        <div class="series-row-header">
-                            <span>{ format!("Serie {}", set_number) }</span>
-                            { if completed {
-                                html! { <span class="series-status">{"Completata"}</span> }
-                            } else {
-                                html! { <span class="series-status pending">{"In attesa"}</span> }
-                            } }
-                        </div>
-                        <div class="input-row">
-                            // ── Peso: input above, step buttons below ────────
-                            <div class="input-field">
-                                <span class="input-label">{"Peso (kg)"}</span>
-                                <input class="weight-val-input" value={weight_display}
-                                    inputmode="decimal"
-                                    placeholder={if weight_hint.is_empty() { "0".to_string() } else { format!("{} (ultima)", weight_hint) }}
-                                    oninput={{
-                                        let cb = props.on_weight_change.clone();
-                                        let eid = exercise_id.clone();
-                                        Callback::from(move |e: InputEvent| {
-                                            if let Some(i) = e.target().and_then(|t| t.dyn_into::<HtmlInputElement>().ok()) {
-                                                cb.emit((eid.clone(), clamped, i.value()));
-                                            }
-                                        })
-                                    }}
-                                />
-                                <div class="step-row">
-                                    <button class="step-btn" onclick={on_weight_minus}>{"−"}</button>
-                                    <button class="step-selector" onclick={on_cycle_step}
-                                            title="Tocca per cambiare passo">
-                                        { format!("±{} kg", fmt_weight(step)) }
-                                    </button>
-                                    <button class="step-btn" onclick={on_weight_plus}>{"+"}</button>
+                if is_cardio {
+                    // ── Cardio UI ──────────────────────────────────────────
+                    <div class="sheet-content" key={exercise_id.clone()}>
+                        <ProgressBar
+                            n={exercise.serie}
+                            dot_done={dot_done.clone()}
+                            dot_reps_hint={vec![]}
+                            active={0}
+                            just_saved={*just_saved}
+                            on_select={Callback::from(|_: usize| {})}
+                        />
+                        <div class="cardio-stopwatch">
+                            <div class="cardio-timer-wrap">
+                                <span class="cardio-timer-label">{"timer"}</span>
+                                <div class="cardio-time">
+                                    { format!("{:02}:{:02}", props.cardio_elapsed / 60, props.cardio_elapsed % 60) }
                                 </div>
                             </div>
-                            // ── Reps: buttons beside the input ───────────────
-                            <div class="input-field">
-                                <span class="input-label">{"Reps"}</span>
-                                <div class="reps-row">
-                                    <button class="step-btn" onclick={on_reps_minus}>{"−"}</button>
-                                    <input class="reps-val-input" value={reps_display}
-                                        inputmode="numeric" placeholder={exercise.reps.clone()}
+                            <div class="cardio-target">
+                                { format!("Obiettivo: {}", exercise.reps) }
+                            </div>
+                        </div>
+                        if let Some(note) = &exercise.note {
+                            <p class="exercise-note">{ note.clone() }</p>
+                        }
+                    </div>
+                    if !props.history_mode {
+                        <div class="sheet-actions">
+                            <button class="secondary-button" onclick={{
+                                let cb = props.on_cardio_toggle.clone();
+                                Callback::from(move |_: MouseEvent| cb.emit(()))
+                            }}>
+                                { if props.cardio_running { "Pausa" }
+                                  else if props.cardio_elapsed > 0 { "Riprendi" }
+                                  else { "Avvia" } }
+                            </button>
+                            <button class="primary-button" onclick={{
+                                let cb = props.on_cardio_stop.clone();
+                                Callback::from(move |_: MouseEvent| cb.emit(()))
+                            }}
+                                disabled={props.cardio_elapsed == 0 && !props.cardio_running}>
+                                { if cardio_done { "Aggiorna" } else { "Registra" } }
+                            </button>
+                        </div>
+                    }
+                } else {
+                    // ── Weight / reps UI ───────────────────────────────────
+                    <div class="sheet-content" key={exercise_id.clone()}>
+                        if *chart_open {
+                            <div class="weight-chart-section">
+                                { render_weight_chart(&chart_points) }
+                            </div>
+                        }
+
+                        <ProgressBar
+                            n={exercise.serie}
+                            dot_done={dot_done.clone()}
+                            dot_reps_hint={dot_reps_hint.clone()}
+                            active={clamped}
+                            just_saved={*just_saved}
+                            on_select={{
+                                let asc = active_set.clone();
+                                Callback::from(move |idx: usize| asc.set(idx))
+                            }}
+                        />
+
+                        <div class="series-row">
+                            <div class="series-row-header">
+                                <span>{ format!("Serie {}", set_number) }</span>
+                                { if completed {
+                                    html! { <span class="series-status">{"Completata"}</span> }
+                                } else {
+                                    html! { <span class="series-status pending">{"In attesa"}</span> }
+                                } }
+                            </div>
+                            <div class="input-row">
+                                // ── Peso: input above, step buttons below ────────
+                                <div class="input-field">
+                                    <span class="input-label">{"Peso (kg)"}</span>
+                                    <input class="weight-val-input" value={weight_display}
+                                        inputmode="decimal"
+                                        placeholder={if weight_hint.is_empty() { "0".to_string() } else { format!("{} (ultima)", weight_hint) }}
                                         oninput={{
-                                            let cb = props.on_reps_change.clone();
+                                            let cb = props.on_weight_change.clone();
                                             let eid = exercise_id.clone();
                                             Callback::from(move |e: InputEvent| {
                                                 if let Some(i) = e.target().and_then(|t| t.dyn_into::<HtmlInputElement>().ok()) {
@@ -468,35 +511,62 @@ pub fn bottom_sheet(props: &BottomSheetProps) -> Html {
                                             })
                                         }}
                                     />
-                                    <button class="step-btn" onclick={on_reps_plus}>{"+"}</button>
+                                    <div class="step-row">
+                                        <button class="step-btn" onclick={on_weight_minus}>{"−"}</button>
+                                        <button class="step-selector" onclick={on_cycle_step}
+                                                title="Tocca per cambiare passo">
+                                            { format!("±{} kg", fmt_weight(step)) }
+                                        </button>
+                                        <button class="step-btn" onclick={on_weight_plus}>{"+"}</button>
+                                    </div>
+                                </div>
+                                // ── Reps: buttons beside the input ───────────────
+                                <div class="input-field">
+                                    <span class="input-label">{"Reps"}</span>
+                                    <div class="reps-row">
+                                        <button class="step-btn" onclick={on_reps_minus}>{"−"}</button>
+                                        <input class="reps-val-input" value={reps_display}
+                                            inputmode="numeric" placeholder={exercise.reps.clone()}
+                                            oninput={{
+                                                let cb = props.on_reps_change.clone();
+                                                let eid = exercise_id.clone();
+                                                Callback::from(move |e: InputEvent| {
+                                                    if let Some(i) = e.target().and_then(|t| t.dyn_into::<HtmlInputElement>().ok()) {
+                                                        cb.emit((eid.clone(), clamped, i.value()));
+                                                    }
+                                                })
+                                            }}
+                                        />
+                                        <button class="step-btn" onclick={on_reps_plus}>{"+"}</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    if let Some(note) = &exercise.note {
-                        <p class="exercise-note">{ note.clone() }</p>
-                    }
-                </div>
-                // ── Action footer — outside scrollable area, always visible ──
-                <div class="sheet-actions">
-                    <button class="primary-button" onclick={on_register}
-                        disabled={props.timer.running || props.timer.left > 0}>
-                        { if completed { "Aggiorna serie" } else { "Registra serie" } }
-                    </button>
-                    if !props.history_mode
-                        && (!completed || props.timer.running || props.timer.left > 0)
-                    {
-                        <button class="secondary-button" onclick={{
-                            let cb = props.on_start_timer.clone();
-                            Callback::from(move |_: MouseEvent| cb.emit(()))
-                        }}>
-                            { if props.timer.running { "Pausa" }
-                              else if props.timer.left > 0 { "Riprendi recupero" }
-                              else { "Avvia recupero" } }
+                        if let Some(note) = &exercise.note {
+                            <p class="exercise-note">{ note.clone() }</p>
+                        }
+                    </div>
+                    // ── Action footer — outside scrollable area, always visible ──
+                    <div class="sheet-actions">
+                        <button class="primary-button" onclick={on_register}
+                            disabled={props.timer.running || props.timer.left > 0}>
+                            { if completed { "Aggiorna serie" } else { "Registra serie" } }
                         </button>
-                    }
-                </div>
+                        if !props.history_mode
+                            && (!completed || props.timer.running || props.timer.left > 0)
+                        {
+                            <button class="secondary-button" onclick={{
+                                let cb = props.on_start_timer.clone();
+                                Callback::from(move |_: MouseEvent| cb.emit(()))
+                            }}>
+                                { if props.timer.running { "Pausa" }
+                                  else if props.timer.left > 0 { "Riprendi recupero" }
+                                  else { "Avvia recupero" } }
+                            </button>
+                        }
+                    </div>
+                }
             }
         </div>
 

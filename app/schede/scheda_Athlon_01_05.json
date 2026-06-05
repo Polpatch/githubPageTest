@@ -15,7 +15,8 @@
           "reps": "5-10 min",
           "recupero": null,
           "video": null,
-          "note": "Riscaldamento cardio iniziale"
+          "note": "Riscaldamento cardio iniziale",
+          "tipo": "cardio"
         },
         {
           "id": "machine_chest_press",
@@ -93,7 +94,8 @@
           "reps": "5-10 min",
           "recupero": null,
           "video": null,
-          "note": "Riscaldamento cardio iniziale"
+          "note": "Riscaldamento cardio iniziale",
+          "tipo": "cardio"
         },
         {
           "id": "pull_up_neutral_supine",
@@ -180,7 +182,8 @@
           "reps": "5-10 min",
           "recupero": null,
           "video": null,
-          "note": "Riscaldamento cardio iniziale"
+          "note": "Riscaldamento cardio iniziale",
+          "tipo": "cardio"
         },
         {
           "id": "back_squat",

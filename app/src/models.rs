@@ -30,6 +30,10 @@ pub struct Exercise {
     pub recupero: Option<u32>,
     pub note: Option<String>,
     pub video: Option<String>,
+    #[serde(default)]
+    pub tipo: Option<String>,
+    #[serde(default)]
+    pub durata: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -50,6 +54,8 @@ pub struct CompletedSet {
     pub peso: Option<f32>,
     pub reps: Option<String>,
     pub timestamp: String,
+    #[serde(default)]
+    pub durata_min: Option<u32>,
 }
 
 // ── Session schema ───────────────────────────────────────────────────────────
@@ -341,14 +347,16 @@ pub fn upsert_completed_set(
     set_number: u32,
     peso: Option<f32>,
     reps: Option<String>,
+    durata_min: Option<u32>,
 ) -> Vec<CompletedSet> {
     let timestamp = now_iso();
     if let Some(e) = list.iter_mut().find(|s| {
         s.exercise_id == exercise.id && s.set_number == set_number
     }) {
-        e.peso      = peso;
-        e.reps      = reps;
-        e.timestamp = timestamp;
+        e.peso       = peso;
+        e.reps       = reps;
+        e.durata_min = durata_min;
+        e.timestamp  = timestamp;
     } else {
         list.push(CompletedSet {
             exercise_id: exercise.id.clone(),
@@ -356,6 +364,7 @@ pub fn upsert_completed_set(
             set_number,
             peso,
             reps,
+            durata_min,
             timestamp,
         });
     }
