@@ -15,7 +15,8 @@
           "reps": "10 min",
           "recupero": null,
           "video": null,
-          "note": "Riscaldamento cardio iniziale"
+          "note": "Riscaldamento cardio iniziale",
+          "tipo": "cardio"
         },
         {
           "id": "flat_bench_bb_press",
@@ -93,7 +94,8 @@
           "reps": "10 min",
           "recupero": null,
           "video": null,
-          "note": "Riscaldamento cardio iniziale"
+          "note": "Riscaldamento cardio iniziale",
+          "tipo": "cardio"
         },
         {
           "id": "pull_up_wide_grip",
@@ -189,7 +191,8 @@
           "reps": "10 min",
           "recupero": null,
           "video": null,
-          "note": "Solo tapis roulant, niente cyclette nel giorno gambe"
+          "note": "Solo tapis roulant, niente cyclette nel giorno gambe",
+          "tipo": "cardio"
         },
         {
           "id": "bb_squat",

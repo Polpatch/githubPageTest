@@ -15,7 +15,8 @@
           "reps": "5-8 min",
           "recupero": null,
           "video": null,
-          "note": "Zona 1-2 (60-65% FCmax). Breve: serve solo ad alzare temperatura corporea e lubrificare le articolazioni, non ad esaurirsi."
+          "note": "Zona 1-2 (60-65% FCmax). Breve: serve solo ad alzare temperatura corporea e lubrificare le articolazioni, non ad esaurirsi.",
+          "tipo": "cardio"
         },
         {
           "id": "machine_chest_press_push1",
@@ -87,7 +88,8 @@
           "reps": "10-15 min",
           "recupero": null,
           "video": null,
-          "note": "Zona 2: 60-70% FCmax. Massimizza l'ossidazione dei grassi post-allenamento (finestra EPOC). Mantieni passo costante, non ti esaurire. Facoltativo se il tempo stringe."
+          "note": "Zona 2: 60-70% FCmax. Massimizza l'ossidazione dei grassi post-allenamento (finestra EPOC). Mantieni passo costante, non ti esaurire. Facoltativo se il tempo stringe.",
+          "tipo": "cardio"
         }
       ]
     },
@@ -102,7 +104,8 @@
           "reps": "5-8 min",
           "recupero": null,
           "video": null,
-          "note": "Zona 1-2. Breve riscaldamento."
+          "note": "Zona 1-2. Breve riscaldamento.",
+          "tipo": "cardio"
         },
         {
           "id": "pull_up_neutral_pull2",
@@ -183,7 +186,8 @@
           "reps": "10-15 min",
           "recupero": null,
           "video": null,
-          "note": "Zona 2: 60-70% FCmax. Vedi note Giorno 1."
+          "note": "Zona 2: 60-70% FCmax. Vedi note Giorno 1.",
+          "tipo": "cardio"
         }
       ]
     },
@@ -198,7 +202,8 @@
           "reps": "5-8 min",
           "recupero": null,
           "video": null,
-          "note": "Nel giorno gambe preferisci il tapis roulant: riscalda anche le gambe. Zona 1."
+          "note": "Nel giorno gambe preferisci il tapis roulant: riscalda anche le gambe. Zona 1.",
+          "tipo": "cardio"
         },
         {
           "id": "back_squat_legs3",
@@ -288,7 +293,8 @@
           "reps": "10-15 min",
           "recupero": null,
           "video": null,
-          "note": "Zona 2: 60-70% FCmax. Nel giorno gambe è particolarmente efficace: i muscoli delle gambe già stimolati aumentano il dispendio calorico complessivo. Facoltativo se stanco."
+          "note": "Zona 2: 60-70% FCmax. Nel giorno gambe è particolarmente efficace: i muscoli delle gambe già stimolati aumentano il dispendio calorico complessivo. Facoltativo se stanco.",
+          "tipo": "cardio"
         }
       ]
     }

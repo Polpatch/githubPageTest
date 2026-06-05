@@ -34,8 +34,8 @@
     <!-- Trunk build -->
     
 <script type="module">
-import init, * as bindings from './fitness_wasm-8350869ce07dd3b9.js';
-const wasm = await init({ module_or_path: './fitness_wasm-8350869ce07dd3b9_bg.wasm' });
+import init, * as bindings from './fitness_wasm-97fc4d51a6ba2d74.js';
+const wasm = await init({ module_or_path: './fitness_wasm-97fc4d51a6ba2d74_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -279,6 +279,12 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
       .exercise-meta { color: var(--text-3); font-size: 0.95rem; }
       .exercise-rec { color: var(--text); font-weight: 700; font-size: 0.94rem; margin-top: 8px; }
       .exercise-note { margin: 14px 0 0; color: var(--text-2); background: var(--amber-bg); padding: 14px 16px; border-radius: 16px; border: 1px solid var(--amber-border); }
+      .cardio-done-tag { font-size: 0.78rem; color: var(--text-3); text-align: center; margin-top: 6px; }
+      .cardio-stopwatch { display: flex; flex-direction: column; align-items: center; padding-bottom: 10px; }
+      .cardio-timer-wrap { position: relative; margin: 1em 13% 0; width: 74%; aspect-ratio: 1; border-radius: 50%; background: transparent; border: 4px solid var(--blue); display: flex; align-items: center; justify-content: center; }
+      .cardio-timer-label { position: absolute; top: 28%; left: 0; right: 0; text-align: center; font-weight: 300; font-size: 0.78rem; color: var(--text-3); letter-spacing: 0.12em; text-transform: uppercase; pointer-events: none; }
+      .cardio-time { font-size: clamp(3rem, 15vw, 5rem); font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--text); line-height: 1; }
+      .cardio-target { font-size: 0.8rem; color: var(--text-3); margin-top: 12px; }
       .expanded-body { margin-top: 20px; }
       .series-progress { display: flex; align-items: center; justify-content: center; padding: 0 12%; margin-bottom: 20px; }
       .series-dot { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--surface-3); border: 2px solid var(--border-2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: var(--text-4); transition: all .15s ease; padding: 0; position: relative; }
@@ -450,7 +456,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
         .input-row { grid-template-columns: 1fr; }
       }
     </style>
-  <link rel="modulepreload" href="./fitness_wasm-8350869ce07dd3b9.js" crossorigin="anonymous" integrity="sha384-7n5ViDP/BGpk4lw1TVxcoI7J5hj93SnuZDppjGFjGWxFuxHm0OHu4brlMpkrvaiD"><link rel="preload" href="./fitness_wasm-8350869ce07dd3b9_bg.wasm" crossorigin="anonymous" integrity="sha384-cyUNxeKX0GupTydb3NMfDAL1ec7Ikm1nVivbDVqhcv4yN2yaCrj2F+vWK5UCKCSp" as="fetch" type="application/wasm"></head>
+  <link rel="modulepreload" href="./fitness_wasm-97fc4d51a6ba2d74.js" crossorigin="anonymous" integrity="sha384-QEe1/zLzigEXmCPB6mCKDxxibp+rNY3bDk5JyYFXKnv3Mh7EKD3YSTk7j0SybpxG"><link rel="preload" href="./fitness_wasm-97fc4d51a6ba2d74_bg.wasm" crossorigin="anonymous" integrity="sha384-CWywxmuQqYeKOc6MISeNAAzSNoIqgjqIWqqWmXcw7lWmqAtshZbAebQQfeQFkOVL" as="fetch" type="application/wasm"></head>
   <body>
     <div id="root"></div>
   </body>
