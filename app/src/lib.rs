@@ -1325,8 +1325,8 @@ fn app() -> Html {
 
     // ── Service Worker handle + notification permission ──────────────────────
     // Grab the already-registered SW so we can postMessage it later.
-    // Notification permission is requested once on mount (silently ignored if
-    // the browser doesn't support it or the user already decided).
+    // Tries controller() immediately (fast path), then falls back to ready()
+    // for the first-load case where the SW is still activating.
     {
         let sw_handle = sw_handle.clone();
         use_effect_with_deps(
@@ -1335,13 +1335,24 @@ fn app() -> Html {
                     let Some(window) = web_sys::window() else { return };
                     let sw_container = window.navigator().service_worker();
 
-                    // Request notification permission (no-op if already granted/denied)
-                    let _ = JsFuture::from(web_sys::Notification::request_permission().unwrap()).await;
+                    // Fast path: controller is set when SW already controls the page
+                    if let Some(ctrl) = sw_container.controller() {
+                        *sw_handle.borrow_mut() = Some(ctrl);
+                    }
 
-                    // Wait for the SW to be ready and store a reference to it
-                    if let Ok(reg) = JsFuture::from(sw_container.ready().unwrap()).await {
-                        let reg: web_sys::ServiceWorkerRegistration = reg.unchecked_into();
-                        *sw_handle.borrow_mut() = reg.active();
+                    // Request notification permission — errors silently ignored
+                    if let Ok(promise) = web_sys::Notification::request_permission() {
+                        let _ = JsFuture::from(promise).await;
+                    }
+
+                    // Slow path: wait for SW to be ready (covers first-load case)
+                    if sw_handle.borrow().is_none() {
+                        if let Ok(ready_promise) = sw_container.ready() {
+                            if let Ok(reg) = JsFuture::from(ready_promise).await {
+                                let reg: web_sys::ServiceWorkerRegistration = reg.unchecked_into();
+                                *sw_handle.borrow_mut() = reg.active();
+                            }
+                        }
                     }
                 });
                 || ()

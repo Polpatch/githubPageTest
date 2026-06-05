@@ -68,11 +68,12 @@ self.addEventListener('message', ({ data }) => {
 });
 
 function fireNotification() {
+  if (Notification.permission !== 'granted') return;
   self.registration.showNotification('Recupero completato', {
     body: 'Puoi riprendere con il prossimo set',
     tag: 'recovery-timer',
     renotify: false,
-  });
+  }).catch(e => console.warn('[SW] showNotification error:', e));
 }
 
 self.addEventListener('notificationclick', e => {
