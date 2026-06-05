@@ -217,6 +217,8 @@ fn app() -> Html {
     let cardio_elapsed          = use_state(|| 0u32);
     let cardio_running          = use_state(|| false);
     let cardio_handle           = use_mut_ref(|| None::<Interval>);
+    let timer_end_ts            = use_mut_ref(|| 0.0f64);
+    let visibility_listener     = use_mut_ref(|| None::<Closure<dyn Fn()>>);
     // ID of the currently active session (empty = no workout loaded)
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
@@ -748,12 +750,14 @@ fn app() -> Html {
         let timer_running      = timer_running.clone();
         let timer_left         = timer_left.clone();
         let timer_total        = timer_total.clone();
+        let timer_end_ts       = timer_end_ts.clone();
         Callback::from(move |_: ()| {
             // 1. Stop the interval
             timer_handle.borrow_mut().take();
             timer_running.set(false);
             timer_left.set(0);
             timer_total.set(0);
+            *timer_end_ts.borrow_mut() = 0.0;
             // 2. Save the next incomplete set (mirrors timer's at-zero logic)
             if let Some(workout) = &*workout {
                 if let Some(day) = workout.giorni.get(*day_index) {
@@ -815,11 +819,13 @@ fn app() -> Html {
         let weight_inputs      = weight_inputs.clone();
         let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
+        let timer_end_ts       = timer_end_ts.clone();
         Callback::from(move |_: ()| {
             if *timer_running {
                 // Pause: stop the interval but keep timer_left intact
                 timer_handle.borrow_mut().take();
                 timer_running.set(false);
+                *timer_end_ts.borrow_mut() = 0.0;
                 return;
             }
             if let Some(workout) = &*workout_state {
@@ -836,6 +842,8 @@ fn app() -> Html {
                         timer_left.set(start_from);
                         timer_handle.borrow_mut().take();
 
+                        *timer_end_ts.borrow_mut() = js_sys::Date::now() + start_from as f64 * 1000.0;
+
                         let timer_left_state           = timer_left.clone();
                         let timer_running_inner        = timer_running.clone();
                         let timer_handle_inner         = timer_handle.clone();
@@ -846,12 +854,11 @@ fn app() -> Html {
                         let weight_inputs_for_timer    = weight_inputs.clone();
                         let reps_inputs_for_timer      = reps_inputs.clone();
                         let session_id_for_timer       = current_session_id.clone();
-                        let remaining = Rc::new(Cell::new(start_from));
-                        let remaining_clone = remaining.clone();
+                        let end_ref                    = timer_end_ts.clone();
 
                         let handle = Interval::new(1000, move || {
-                            let next = remaining_clone.get().saturating_sub(1);
-                            remaining_clone.set(next);
+                            let end  = *end_ref.borrow();
+                            let next = ((end - js_sys::Date::now()) / 1000.0).max(0.0).ceil() as u32;
                             timer_left_state.set(next);
 
                             if next == 0 {
@@ -914,6 +921,7 @@ fn app() -> Html {
                                     }
                                 }
                                 timer_handle_inner.borrow_mut().take();
+                                *end_ref.borrow_mut() = 0.0;
                             }
                         });
                         *timer_handle.borrow_mut() = Some(handle);
@@ -1016,11 +1024,13 @@ fn app() -> Html {
         let cardio_elapsed         = cardio_elapsed.clone();
         let cardio_running         = cardio_running.clone();
         let cardio_handle          = cardio_handle.clone();
+        let timer_end_ts           = timer_end_ts.clone();
         Rc::new(move || {
             timer_handle.borrow_mut().take();
             timer_running.set(false);
             timer_left.set(0);
             timer_total.set(0);
+            *timer_end_ts.borrow_mut() = 0.0;
             cardio_handle.borrow_mut().take();
             cardio_running.set(false);
             cardio_elapsed.set(0);
@@ -1300,24 +1310,22 @@ fn app() -> Html {
                 if sid.is_empty() || *in_history {
                     elapsed.set(0);
                 } else {
-                    let initial = wk.as_ref()
+                    let session_info = wk.as_ref()
                         .and_then(|w| {
                             load_sessions(&w.id)
                                 .into_iter()
                                 .find(|s| &s.id == sid)
                                 .map(|s| {
-                                    let diff = (js_sys::Date::now() - js_sys::Date::parse(&s.started)).max(0.0);
-                                    (diff / 1000.0) as u32
+                                    let started_ms = js_sys::Date::parse(&s.started);
+                                    let initial = ((js_sys::Date::now() - started_ms).max(0.0) / 1000.0) as u32;
+                                    (initial, started_ms)
                                 })
-                        })
-                        .unwrap_or(0);
+                        });
+                    let (initial, started_ms) = session_info.unwrap_or((0, 0.0));
                     elapsed.set(initial);
                     let elapsed2 = elapsed.clone();
-                    let count    = Rc::new(Cell::new(initial));
-                    let count2   = count.clone();
                     let h = Interval::new(1000, move || {
-                        let n = count2.get() + 1;
-                        count2.set(n);
+                        let n = ((js_sys::Date::now() - started_ms) / 1000.0) as u32;
                         elapsed2.set(n);
                     });
                     *handle.borrow_mut() = Some(h);
@@ -1326,6 +1334,54 @@ fn app() -> Html {
             },
             ((*current_session_id).clone(), *viewing_history),
         );
+    }
+
+    // ── Page-visibility correction for recovery timer ────────────────────────
+    // When the screen is unlocked, immediately snap timer_left to the correct
+    // value instead of waiting for the next 1-second interval tick.
+    {
+        let timer_end_ref   = timer_end_ts.clone();
+        let timer_running_v = timer_running.clone();
+        let timer_left_v    = timer_left.clone();
+        let vis_listener    = visibility_listener.clone();
+
+        use_effect_with_deps(
+            move |_| {
+                let doc_opt = web_sys::window().and_then(|w| w.document());
+                if let Some(doc) = &doc_opt {
+                    let cb = Closure::<dyn Fn()>::wrap(Box::new(move || {
+                        let Some(d) = web_sys::window().and_then(|w| w.document()) else { return };
+                        if d.hidden() { return; }
+                        if !*timer_running_v { return; }
+                        let end = *timer_end_ref.borrow();
+                        if end <= 0.0 { return; }
+                        let remaining = ((end - js_sys::Date::now()) / 1000.0).max(0.0).ceil() as u32;
+                        timer_left_v.set(remaining);
+                    }));
+                    doc.add_event_listener_with_callback(
+                        "visibilitychange",
+                        cb.as_ref().unchecked_ref(),
+                    ).ok();
+                    *vis_listener.borrow_mut() = Some(cb);
+                }
+
+                let vl = vis_listener.clone();
+                move || {
+                    let guard = vl.borrow();
+                    if let Some(c) = guard.as_ref() {
+                        if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+                            doc.remove_event_listener_with_callback(
+                                "visibilitychange",
+                                c.as_ref().unchecked_ref(),
+                            ).ok();
+                        }
+                    }
+                    drop(guard);
+                    *vl.borrow_mut() = None;
+                }
+            },
+            (),
+        )
     }
 
     // Pre-compute session progress (done / total sets for current day)
