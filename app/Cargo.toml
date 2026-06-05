@@ -20,6 +20,9 @@ web-sys = { version = "0.3", features = [
   "Touch", "TouchEvent", "TouchList", "Element",
   "Blob", "Url", "HtmlAnchorElement",
   "Document", "Window", "Location", "Navigator",
+  "ServiceWorkerContainer", "ServiceWorkerRegistration",
+  "ServiceWorker", "Notification", "NotificationPermission",
+  "NotificationOptions",
 ] }
 wasm-bindgen-futures = "0.4"
 console_error_panic_hook = "0.1"

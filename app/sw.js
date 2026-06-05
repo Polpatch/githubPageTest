@@ -51,3 +51,37 @@ self.addEventListener('fetch', e => {
     );
   }
 });
+
+// ── Recovery timer notifications ─────────────────────────────────────────────
+let scheduledTimeout = null;
+
+self.addEventListener('message', ({ data }) => {
+  if (data.action === 'schedule') {
+    clearTimeout(scheduledTimeout);
+    const delay = data.fire_at - Date.now();
+    if (delay <= 0) fireNotification();
+    else scheduledTimeout = setTimeout(fireNotification, delay);
+  }
+  if (data.action === 'cancel') {
+    clearTimeout(scheduledTimeout);
+  }
+});
+
+function fireNotification() {
+  self.registration.showNotification('Recupero completato', {
+    body: 'Puoi riprendere con il prossimo set',
+    tag: 'recovery-timer',
+    renotify: false,
+  });
+}
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(list => {
+        const match = list.find(c => c.url.startsWith(self.registration.scope));
+        return match ? match.focus() : clients.openWindow('./');
+      })
+  );
+});

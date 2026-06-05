@@ -51,6 +51,19 @@ fn release_wake_lock(slot: &Rc<RefCell<Option<JsValue>>>) {
     }
 }
 
+/// Send a message to the Service Worker for timer scheduling/cancellation.
+/// Silently does nothing if no SW is available.
+fn sw_post(sw: &Rc<RefCell<Option<web_sys::ServiceWorker>>>, action: &str, fire_at: Option<f64>) {
+    if let Some(worker) = sw.borrow().as_ref() {
+        let obj = js_sys::Object::new();
+        let _ = js_sys::Reflect::set(&obj, &"action".into(), &action.into());
+        if let Some(ts) = fire_at {
+            let _ = js_sys::Reflect::set(&obj, &"fire_at".into(), &ts.into());
+        }
+        let _ = worker.post_message(&JsValue::from(obj));
+    }
+}
+
 /// Build weight_inputs / reps_inputs maps from a saved-sets list so that
 /// input fields are pre-filled when a session is loaded or resumed.
 fn inputs_from_sets(sets: &[CompletedSet]) -> (HashMap<String, Vec<String>>, HashMap<String, Vec<String>>) {
@@ -219,6 +232,7 @@ fn app() -> Html {
     let cardio_handle           = use_mut_ref(|| None::<Interval>);
     let timer_end_ts            = use_mut_ref(|| 0.0f64);
     let visibility_listener     = use_mut_ref(|| None::<Closure<dyn Fn()>>);
+    let sw_handle               = use_mut_ref(|| None::<web_sys::ServiceWorker>);
     // ID of the currently active session (empty = no workout loaded)
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
@@ -751,6 +765,7 @@ fn app() -> Html {
         let timer_left         = timer_left.clone();
         let timer_total        = timer_total.clone();
         let timer_end_ts       = timer_end_ts.clone();
+        let sw_handle          = sw_handle.clone();
         Callback::from(move |_: ()| {
             // 1. Stop the interval
             timer_handle.borrow_mut().take();
@@ -758,6 +773,7 @@ fn app() -> Html {
             timer_left.set(0);
             timer_total.set(0);
             *timer_end_ts.borrow_mut() = 0.0;
+            sw_post(&sw_handle, "cancel", None);
             // 2. Save the next incomplete set (mirrors timer's at-zero logic)
             if let Some(workout) = &*workout {
                 if let Some(day) = workout.giorni.get(*day_index) {
@@ -820,12 +836,14 @@ fn app() -> Html {
         let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
         let timer_end_ts       = timer_end_ts.clone();
+        let sw_handle          = sw_handle.clone();
         Callback::from(move |_: ()| {
             if *timer_running {
                 // Pause: stop the interval but keep timer_left intact
                 timer_handle.borrow_mut().take();
                 timer_running.set(false);
                 *timer_end_ts.borrow_mut() = 0.0;
+                sw_post(&sw_handle, "cancel", None);
                 return;
             }
             if let Some(workout) = &*workout_state {
@@ -842,7 +860,9 @@ fn app() -> Html {
                         timer_left.set(start_from);
                         timer_handle.borrow_mut().take();
 
-                        *timer_end_ts.borrow_mut() = js_sys::Date::now() + start_from as f64 * 1000.0;
+                        let end_ts = js_sys::Date::now() + start_from as f64 * 1000.0;
+                        *timer_end_ts.borrow_mut() = end_ts;
+                        sw_post(&sw_handle, "schedule", Some(end_ts));
 
                         let timer_left_state           = timer_left.clone();
                         let timer_running_inner        = timer_running.clone();
@@ -855,6 +875,7 @@ fn app() -> Html {
                         let reps_inputs_for_timer      = reps_inputs.clone();
                         let session_id_for_timer       = current_session_id.clone();
                         let end_ref                    = timer_end_ts.clone();
+                        let sw_for_timer               = sw_handle.clone();
 
                         let handle = Interval::new(1000, move || {
                             let end  = *end_ref.borrow();
@@ -922,6 +943,7 @@ fn app() -> Html {
                                 }
                                 timer_handle_inner.borrow_mut().take();
                                 *end_ref.borrow_mut() = 0.0;
+                                sw_post(&sw_for_timer, "cancel", None);
                             }
                         });
                         *timer_handle.borrow_mut() = Some(handle);
@@ -1025,12 +1047,14 @@ fn app() -> Html {
         let cardio_running         = cardio_running.clone();
         let cardio_handle          = cardio_handle.clone();
         let timer_end_ts           = timer_end_ts.clone();
+        let sw_handle              = sw_handle.clone();
         Rc::new(move || {
             timer_handle.borrow_mut().take();
             timer_running.set(false);
             timer_left.set(0);
             timer_total.set(0);
             *timer_end_ts.borrow_mut() = 0.0;
+            sw_post(&sw_handle, "cancel", None);
             cardio_handle.borrow_mut().take();
             cardio_running.set(false);
             cardio_elapsed.set(0);
@@ -1297,6 +1321,33 @@ fn app() -> Html {
             },
             workout.is_some(),
         );
+    }
+
+    // ── Service Worker handle + notification permission ──────────────────────
+    // Grab the already-registered SW so we can postMessage it later.
+    // Notification permission is requested once on mount (silently ignored if
+    // the browser doesn't support it or the user already decided).
+    {
+        let sw_handle = sw_handle.clone();
+        use_effect_with_deps(
+            move |_| {
+                spawn_local(async move {
+                    let Some(window) = web_sys::window() else { return };
+                    let sw_container = window.navigator().service_worker();
+
+                    // Request notification permission (no-op if already granted/denied)
+                    let _ = JsFuture::from(web_sys::Notification::request_permission().unwrap()).await;
+
+                    // Wait for the SW to be ready and store a reference to it
+                    if let Ok(reg) = JsFuture::from(sw_container.ready().unwrap()).await {
+                        let reg: web_sys::ServiceWorkerRegistration = reg.unchecked_into();
+                        *sw_handle.borrow_mut() = reg.active();
+                    }
+                });
+                || ()
+            },
+            (),
+        )
     }
 
     // ── Session elapsed timer ────────────────────────────────────────────────
