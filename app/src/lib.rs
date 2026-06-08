@@ -1,5 +1,6 @@
 mod components;
 mod models;
+mod recovery_timer;
 
 use components::bottom_sheet::BottomSheet;
 use components::calendar::Calendar;
@@ -12,6 +13,7 @@ use gloo_file::File as GlooFile;
 use gloo_net::http::Request;
 use gloo_timers::callback::Interval;
 use models::{load_user_preferred, save_user_preferred, TimerState, *};
+use recovery_timer::use_recovery_timer;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -20,40 +22,6 @@ use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::{spawn_local, JsFuture};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
-
-// ── Timer beep (Web Audio API, no external file) ──────────────────────────────
-#[wasm_bindgen(inline_js = r#"
-export function play_beep() {
-    try {
-        var ctx = new (window.AudioContext || window.webkitAudioContext)();
-        function tone(freq, vol, t0, dur, vibrato) {
-            var o = ctx.createOscillator(), g = ctx.createGain();
-            o.connect(g); g.connect(ctx.destination);
-            o.type = 'sine';
-            o.frequency.setValueAtTime(freq * 1.04, ctx.currentTime + t0);
-            o.frequency.exponentialRampToValueAtTime(freq, ctx.currentTime + t0 + 0.04);
-            if (vibrato) {
-                var lfo = ctx.createOscillator(), lfoG = ctx.createGain();
-                lfo.frequency.value = 5.5;
-                lfoG.gain.value = 14;
-                lfo.connect(lfoG); lfoG.connect(o.frequency);
-                lfo.start(ctx.currentTime + t0 + 0.09);
-                lfo.stop(ctx.currentTime + t0 + dur + 0.1);
-            }
-            g.gain.setValueAtTime(vol, ctx.currentTime + t0);
-            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t0 + dur);
-            o.start(ctx.currentTime + t0);
-            o.stop(ctx.currentTime + t0 + dur + 0.1);
-        }
-        tone(659,  0.55, 0,    0.22, false);
-        tone(784,  0.65, 0.24, 0.13, false);
-        tone(1319, 0.9,  0.41, 0.85, true);
-    } catch(e) {}
-}
-"#)]
-extern "C" {
-    fn play_beep();
-}
 
 // ── Wake Lock helpers ─────────────────────────────────────────────────────────
 
@@ -234,10 +202,7 @@ fn app() -> Html {
     let saved_sets         = use_state(|| Vec::<CompletedSet>::new());
     let catalog            = use_state(|| Vec::<CatalogEntry>::new());
     let catalog_loading    = use_state(|| true);
-    let timer_running      = use_state(|| false);
-    let timer_left         = use_state(|| 0u32);
-    let timer_total        = use_state(|| 0u32);
-    let timer_handle       = use_mut_ref(|| None::<Interval>);
+    let timer              = use_recovery_timer();
     let reader_task        = use_mut_ref(|| None::<FileReader>);
     let import_reader      = use_mut_ref(|| None::<FileReader>);
     let menu_open               = use_state(|| false);
@@ -252,8 +217,6 @@ fn app() -> Html {
     let cardio_elapsed          = use_state(|| 0u32);
     let cardio_running          = use_state(|| false);
     let cardio_handle           = use_mut_ref(|| None::<Interval>);
-    let timer_end_ts            = use_mut_ref(|| 0.0f64);
-    let visibility_listener     = use_mut_ref(|| None::<Closure<dyn Fn()>>);
     // ID of the currently active session (empty = no workout loaded)
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
@@ -673,22 +636,11 @@ fn app() -> Html {
         })
     };
 
-    // ── Cancel timer (called by ExerciseCard when set is manually registered) ──
-    let on_cancel_timer = {
-        let timer_handle  = timer_handle.clone();
-        let timer_running = timer_running.clone();
-        let timer_left    = timer_left.clone();
-        let timer_total   = timer_total.clone();
-        Callback::from(move |_: ()| {
-            timer_handle.borrow_mut().take();
-            timer_running.set(false);
-            timer_left.set(0);
-            timer_total.set(0);
-        })
-    };
-
-    // ── Skip timer — stop + immediately save the next incomplete set ──────────
-    let on_skip_timer = {
+    // ── Register the next incomplete set ──────────────────────────────────────
+    // Shared by skip-timer and the recovery timer's at-zero auto-save: find the
+    // first uncompleted set for the current exercise, save it with the
+    // fallback weight, and mirror the outcome into the state handles.
+    let register_next_incomplete_set: Rc<dyn Fn()> = {
         let workout            = workout.clone();
         let day_index          = day_index.clone();
         let selected_exercise  = selected_exercise.clone();
@@ -696,176 +648,76 @@ fn app() -> Html {
         let weight_inputs      = weight_inputs.clone();
         let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
-        let timer_handle       = timer_handle.clone();
-        let timer_running      = timer_running.clone();
-        let timer_left         = timer_left.clone();
-        let timer_total        = timer_total.clone();
-        let timer_end_ts       = timer_end_ts.clone();
-        Callback::from(move |_: ()| {
-            // 1. Stop the interval
-            timer_handle.borrow_mut().take();
-            timer_running.set(false);
-            timer_left.set(0);
-            timer_total.set(0);
-            *timer_end_ts.borrow_mut() = 0.0;
-            // 2. Save the next incomplete set (mirrors timer's at-zero logic)
-            if let Some(workout) = &*workout {
-                if let Some(day) = workout.giorni.get(*day_index) {
-                    if let Some(exercise) = day.esercizi.get(*selected_exercise) {
-                        let existing: HashSet<u32> = (*saved_sets).iter()
-                            .filter(|s| s.exercise_id == exercise.id)
-                            .map(|s| s.set_number)
-                            .collect();
-                        let next_set = (1..=exercise.serie)
-                            .find(|n| !existing.contains(n))
-                            .unwrap_or(existing.len() as u32 + 1);
-                        if next_set > exercise.serie { return; }
-                        let next_idx = (next_set - 1) as usize;
-                        // Auto-save: the user didn't necessarily touch the field, so
-                        // fall back to the most recent weight entered for this exercise.
-                        let weight_str = get_input_with_fallback(
-                            &weight_inputs, &exercise.id, next_idx, "",
-                        );
-                        let peso = weight_str.parse::<f32>().ok();
-                        let reps = reps_inputs.get(&exercise.id)
-                            .and_then(|v| v.get(next_idx))
-                            .cloned();
-                        let current_idx = *selected_exercise;
-                        let reg = register_set(
-                            workout, day, *day_index, exercise, current_idx,
-                            next_set, peso, reps, &weight_str,
-                            (*saved_sets).clone(), &weight_inputs, &current_session_id,
-                        );
-                        if reg.session_created { current_session_id.set(reg.session_id); }
-                        if reg.next_active_exercise != current_idx {
-                            selected_exercise.set(reg.next_active_exercise);
-                        }
-                        if let Some((idx, val)) = reg.prefill_weight {
-                            weight_inputs.set(update_input_map(
-                                (*weight_inputs).clone(), exercise.id.clone(), idx, val,
-                            ));
-                        }
-                        saved_sets.set(reg.sets);
-                    }
-                }
+        Rc::new(move || {
+            let Some(workout) = &*workout else { return };
+            let Some(day) = workout.giorni.get(*day_index) else { return };
+            let Some(exercise) = day.esercizi.get(*selected_exercise) else { return };
+            let existing: HashSet<u32> = (*saved_sets).iter()
+                .filter(|s| s.exercise_id == exercise.id)
+                .map(|s| s.set_number)
+                .collect();
+            let next_set = (1..=exercise.serie)
+                .find(|n| !existing.contains(n))
+                .unwrap_or(existing.len() as u32 + 1);
+            if next_set > exercise.serie { return; }
+            let next_idx = (next_set - 1) as usize;
+            // Auto-save: the user didn't necessarily touch the field, so fall
+            // back to the most recent weight entered for this exercise.
+            let weight_str = get_input_with_fallback(&weight_inputs, &exercise.id, next_idx, "");
+            let peso = weight_str.parse::<f32>().ok();
+            let reps = reps_inputs.get(&exercise.id)
+                .and_then(|v| v.get(next_idx))
+                .cloned();
+            let current_idx = *selected_exercise;
+            let reg = register_set(
+                workout, day, *day_index, exercise, current_idx,
+                next_set, peso, reps, &weight_str,
+                (*saved_sets).clone(), &weight_inputs, &current_session_id,
+            );
+            if reg.session_created { current_session_id.set(reg.session_id); }
+            if reg.next_active_exercise != current_idx {
+                selected_exercise.set(reg.next_active_exercise);
             }
+            if let Some((idx, val)) = reg.prefill_weight {
+                weight_inputs.set(update_input_map(
+                    (*weight_inputs).clone(), exercise.id.clone(), idx, val,
+                ));
+            }
+            saved_sets.set(reg.sets);
+        })
+    };
+
+    // ── Cancel timer (called by ExerciseCard when set is manually registered) ──
+    let on_cancel_timer = {
+        let timer = timer.clone();
+        Callback::from(move |_: ()| timer.stop())
+    };
+
+    // ── Skip timer — stop + immediately save the next incomplete set ──────────
+    let on_skip_timer = {
+        let timer         = timer.clone();
+        let register_next = register_next_incomplete_set.clone();
+        Callback::from(move |_: ()| {
+            timer.stop();
+            register_next();
         })
     };
 
     // ── Recovery timer (toggle: start / pause / resume) ──────────────────────
     let on_start_timer = {
-        let workout_state      = workout.clone();
-        let day_index          = day_index.clone();
-        let selected_exercise  = selected_exercise.clone();
-        let timer_running      = timer_running.clone();
-        let timer_left         = timer_left.clone();
-        let timer_total        = timer_total.clone();
-        let timer_handle       = timer_handle.clone();
-        let saved_sets         = saved_sets.clone();
-        let weight_inputs      = weight_inputs.clone();
-        let reps_inputs        = reps_inputs.clone();
-        let current_session_id = current_session_id.clone();
-        let timer_end_ts       = timer_end_ts.clone();
+        let timer             = timer.clone();
+        let workout_state     = workout.clone();
+        let day_index         = day_index.clone();
+        let selected_exercise = selected_exercise.clone();
+        let register_next     = register_next_incomplete_set.clone();
         Callback::from(move |_: ()| {
-            if *timer_running {
-                // Pause: stop the interval but keep timer_left intact
-                timer_handle.borrow_mut().take();
-                timer_running.set(false);
-                *timer_end_ts.borrow_mut() = 0.0;
-                return;
-            }
-            if let Some(workout) = &*workout_state {
-                if let Some(day) = workout.giorni.get(*day_index) {
-                    if let Some(exercise) = day.esercizi.get(*selected_exercise) {
-                        // Resume from pause or start fresh
-                        let start_from = if *timer_left > 0 {
-                            *timer_left  // resume
-                        } else {
-                            let dur = exercise.recupero.unwrap_or(90);
-                            timer_total.set(dur);  // only reset total on fresh start
-                            dur
-                        };
-                        timer_left.set(start_from);
-                        timer_handle.borrow_mut().take();
-
-                        let end_ts = js_sys::Date::now() + start_from as f64 * 1000.0;
-                        *timer_end_ts.borrow_mut() = end_ts;
-
-                        let timer_left_state           = timer_left.clone();
-                        let timer_running_inner        = timer_running.clone();
-                        let timer_handle_inner         = timer_handle.clone();
-                        let workout_for_timer          = workout_state.clone();
-                        let day_index_for_timer        = day_index.clone();
-                        let selected_ex_for_timer      = selected_exercise.clone();
-                        let saved_sets_for_timer       = saved_sets.clone();
-                        let weight_inputs_for_timer    = weight_inputs.clone();
-                        let reps_inputs_for_timer      = reps_inputs.clone();
-                        let session_id_for_timer       = current_session_id.clone();
-                        let end_ref                    = timer_end_ts.clone();
-
-                        let handle = Interval::new(1000, move || {
-                            let end  = *end_ref.borrow();
-                            let next = ((end - js_sys::Date::now()) / 1000.0).max(0.0).ceil() as u32;
-                            timer_left_state.set(next);
-
-                            if next == 0 {
-                                play_beep();
-                                timer_running_inner.set(false);
-                                if let Some(workout) = &*workout_for_timer {
-                                    if let Some(day) = workout.giorni.get(*day_index_for_timer) {
-                                        if let Some(exercise) = day.esercizi.get(*selected_ex_for_timer) {
-                                            // Find the first uncompleted set number for this exercise
-                                            let existing: HashSet<u32> = (*saved_sets_for_timer)
-                                                .iter()
-                                                .filter(|s| s.exercise_id == exercise.id)
-                                                .map(|s| s.set_number)
-                                                .collect();
-                                            let next_set = (1..=exercise.serie)
-                                                .find(|n| !existing.contains(n))
-                                                .unwrap_or(existing.len() as u32 + 1);
-                                            let next_idx = (next_set - 1) as usize;
-                                            // Auto-save on timer expiry: fall back to the
-                                            // most recent weight entered for this exercise.
-                                            let weight_str = get_input_with_fallback(
-                                                &weight_inputs_for_timer, &exercise.id, next_idx, "",
-                                            );
-                                            let peso = weight_str.parse::<f32>().ok();
-                                            let reps = reps_inputs_for_timer
-                                                .get(&exercise.id)
-                                                .and_then(|v| v.get(next_idx))
-                                                .cloned();
-                                            let current_idx = *selected_ex_for_timer;
-                                            let reg = register_set(
-                                                workout, day, *day_index_for_timer, exercise,
-                                                current_idx, next_set, peso, reps, &weight_str,
-                                                (*saved_sets_for_timer).clone(),
-                                                &weight_inputs_for_timer, &session_id_for_timer,
-                                            );
-                                            if reg.session_created {
-                                                session_id_for_timer.set(reg.session_id);
-                                            }
-                                            if reg.next_active_exercise != current_idx {
-                                                selected_ex_for_timer.set(reg.next_active_exercise);
-                                            }
-                                            if let Some((idx, val)) = reg.prefill_weight {
-                                                weight_inputs_for_timer.set(update_input_map(
-                                                    (*weight_inputs_for_timer).clone(),
-                                                    exercise.id.clone(), idx, val,
-                                                ));
-                                            }
-                                            saved_sets_for_timer.set(reg.sets);
-                                        }
-                                    }
-                                }
-                                timer_handle_inner.borrow_mut().take();
-                                *end_ref.borrow_mut() = 0.0;
-                            }
-                        });
-                        *timer_handle.borrow_mut() = Some(handle);
-                        timer_running.set(true);
-                    }
-                }
-            }
+            let fresh_secs = workout_state.as_ref()
+                .and_then(|w| w.giorni.get(*day_index))
+                .and_then(|d| d.esercizi.get(*selected_exercise))
+                .and_then(|e| e.recupero)
+                .unwrap_or(90);
+            let register_next = register_next.clone();
+            timer.toggle(fresh_secs, move || register_next());
         })
     };
 
@@ -940,10 +792,7 @@ fn app() -> Html {
     // Shared: reset all workout-related state handles to their initial values.
     // Used by on_save_and_finish, on_delete_workout, and clear_workout.
     let reset_workout_state: Rc<dyn Fn()> = {
-        let timer_handle           = timer_handle.clone();
-        let timer_running          = timer_running.clone();
-        let timer_left             = timer_left.clone();
-        let timer_total            = timer_total.clone();
+        let timer                  = timer.clone();
         let workout                = workout.clone();
         let error                  = error.clone();
         let day_index              = day_index.clone();
@@ -961,13 +810,8 @@ fn app() -> Html {
         let cardio_elapsed         = cardio_elapsed.clone();
         let cardio_running         = cardio_running.clone();
         let cardio_handle          = cardio_handle.clone();
-        let timer_end_ts           = timer_end_ts.clone();
         Rc::new(move || {
-            timer_handle.borrow_mut().take();
-            timer_running.set(false);
-            timer_left.set(0);
-            timer_total.set(0);
-            *timer_end_ts.borrow_mut() = 0.0;
+            timer.stop();
             cardio_handle.borrow_mut().take();
             cardio_running.set(false);
             cardio_elapsed.set(0);
@@ -1198,53 +1042,6 @@ fn app() -> Html {
         );
     }
 
-    // ── Page-visibility correction for recovery timer ────────────────────────
-    // When the screen is unlocked, immediately snap timer_left to the correct
-    // value instead of waiting for the next 1-second interval tick.
-    {
-        let timer_end_ref   = timer_end_ts.clone();
-        let timer_running_v = timer_running.clone();
-        let timer_left_v    = timer_left.clone();
-        let vis_listener    = visibility_listener.clone();
-
-        use_effect_with_deps(
-            move |_| {
-                let doc_opt = web_sys::window().and_then(|w| w.document());
-                if let Some(doc) = &doc_opt {
-                    let cb = Closure::<dyn Fn()>::wrap(Box::new(move || {
-                        let Some(d) = web_sys::window().and_then(|w| w.document()) else { return };
-                        if d.hidden() { return; }
-                        if !*timer_running_v { return; }
-                        let end = *timer_end_ref.borrow();
-                        if end <= 0.0 { return; }
-                        let remaining = ((end - js_sys::Date::now()) / 1000.0).max(0.0).ceil() as u32;
-                        timer_left_v.set(remaining);
-                    }));
-                    doc.add_event_listener_with_callback(
-                        "visibilitychange",
-                        cb.as_ref().unchecked_ref(),
-                    ).ok();
-                    *vis_listener.borrow_mut() = Some(cb);
-                }
-
-                let vl = vis_listener.clone();
-                move || {
-                    let guard = vl.borrow();
-                    if let Some(c) = guard.as_ref() {
-                        if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
-                            doc.remove_event_listener_with_callback(
-                                "visibilitychange",
-                                c.as_ref().unchecked_ref(),
-                            ).ok();
-                        }
-                    }
-                    drop(guard);
-                    *vl.borrow_mut() = None;
-                }
-            },
-            (),
-        )
-    }
 
     // Pre-compute session progress (done / total sets for current day)
     let session_done: usize = saved_sets.len();
@@ -1299,8 +1096,8 @@ fn app() -> Html {
     // Pre-compute timer circle dashoffset (2π × r=19 ≈ 119.38)
     let timer_dashoffset: String = {
         const CIRCUM: f64 = 119.38;
-        if *timer_total > 0 {
-            let frac = *timer_left as f64 / *timer_total as f64;
+        if timer.total > 0 {
+            let frac = timer.left as f64 / timer.total as f64;
             format!("{:.2}", CIRCUM * (1.0 - frac))
         } else {
             format!("{:.2}", CIRCUM)
@@ -1543,7 +1340,7 @@ fn app() -> Html {
                 on_reps_change={on_reps_change.clone()}
                 on_start_timer={on_start_timer.clone()}
                 on_cancel_timer={on_cancel_timer.clone()}
-                timer={TimerState { running: *timer_running, left: *timer_left, total: *timer_total }}
+                timer={TimerState { running: timer.running, left: timer.left, total: timer.total }}
                 history_mode={*viewing_history}
                 workout_id={sheet_workout_id}
                 selected_exercise_idx={*selected_exercise}
@@ -1608,7 +1405,7 @@ fn app() -> Html {
             }
 
             // ── Timer toast (fixed, top of viewport) ─────────────────────────
-            if *timer_running || *timer_left > 0 {
+            if timer.running || timer.left > 0 {
                 <div class="timer-toast">
                     // Circular countdown
                     <svg viewBox="0 0 50 50" width="50" height="50" style="flex-shrink:0">
@@ -1622,17 +1419,17 @@ fn app() -> Html {
                                 transform="rotate(-90, 25, 25)"/>
                         <text class="timer-ring-text" x="25" y="30" text-anchor="middle"
                               font-size="13" font-weight="700" fill="#111">
-                            { format!("{}s", *timer_left) }
+                            { format!("{}s", timer.left) }
                         </text>
                     </svg>
                     <span class="timer-toast-label">
-                        { if *timer_running { "Recupero" } else { "In pausa" } }
+                        { if timer.running { "Recupero" } else { "In pausa" } }
                     </span>
                     <div class="timer-toast-actions">
                         // Pause / Resume
                         <button class="timer-action-btn" title="Pausa / Riprendi"
                                 onclick={{ let cb = on_start_timer.clone(); Callback::from(move |_| cb.emit(())) }}>
-                            { if *timer_running { icon_pause() } else { icon_play() } }
+                            { if timer.running { icon_pause() } else { icon_play() } }
                         </button>
                         <button class="timer-action-btn timer-action-btn--skip" title="Salta e registra"
                                 onclick={{ let cb = on_skip_timer.clone(); Callback::from(move |_| cb.emit(())) }}>
