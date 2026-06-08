@@ -342,13 +342,12 @@ fn app() -> Html {
         )
     };
 
-    // ── Auto-resume on mount ─────────────────────────────────────────────────
-    // On startup, if the user has an open (unfinished) session, restore the
-    // workout + day + sets from localStorage — no network request needed because
-    // upsert_schedule() caches every loaded workout in "schedules".
-    {
-        let workout            = workout.clone();
-        let error              = error.clone();
+    // ── Shared session-state application ─────────────────────────────────────
+    // Mirror a resolved DaySession into the day-level state handles. Single
+    // source of truth for the "0 / 1 / many open sessions" branch that used to
+    // be copy-pasted across auto-resume, day change, calendar select, and
+    // suggestion entry points.
+    let apply_day_session: Rc<dyn Fn(usize, DaySession)> = {
         let day_index          = day_index.clone();
         let selected_exercise  = selected_exercise.clone();
         let saved_sets         = saved_sets.clone();
@@ -356,6 +355,60 @@ fn app() -> Html {
         let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
         let resume_candidates  = resume_candidates.clone();
+        Rc::new(move |day_idx: usize, outcome: DaySession| {
+            day_index.set(day_idx);
+            match outcome {
+                DaySession::Fresh => {
+                    selected_exercise.set(0);
+                    saved_sets.set(vec![]);
+                    weight_inputs.set(HashMap::new());
+                    reps_inputs.set(HashMap::new());
+                    current_session_id.set(String::new());
+                    resume_candidates.set(vec![]);
+                }
+                DaySession::Resume { session_id, sets, active_exercise } => {
+                    let (wi, ri) = inputs_from_sets(&sets);
+                    selected_exercise.set(active_exercise);
+                    saved_sets.set(sets);
+                    weight_inputs.set(wi);
+                    reps_inputs.set(ri);
+                    current_session_id.set(session_id);
+                    resume_candidates.set(vec![]);
+                }
+                DaySession::Disambiguate(candidates) => {
+                    selected_exercise.set(0);
+                    saved_sets.set(vec![]);
+                    weight_inputs.set(HashMap::new());
+                    reps_inputs.set(HashMap::new());
+                    current_session_id.set(String::new());
+                    resume_candidates.set(candidates);
+                }
+            }
+        })
+    };
+
+    // Open a freshly-loaded workout at `day_idx`: resolve its session state and
+    // clear any prior error. Used by file/catalog load, auto-resume, calendar
+    // select, and suggestion entry points.
+    let open_workout_fn: Rc<dyn Fn(Workout, usize)> = {
+        let workout = workout.clone();
+        let error   = error.clone();
+        let apply   = apply_day_session.clone();
+        Rc::new(move |data: Workout, day_idx: usize| {
+            let day_label = data.giorni.get(day_idx)
+                .map(|d| d.giorno.clone()).unwrap_or_default();
+            apply(day_idx, resolve_day_session(&data.id, &day_label));
+            workout.set(Some(data));
+            error.set(None);
+        })
+    };
+
+    // ── Auto-resume on mount ─────────────────────────────────────────────────
+    // On startup, if the user has an open (unfinished) session, restore the
+    // workout + day + sets from localStorage — no network request needed because
+    // upsert_schedule() caches every loaded workout in "schedules".
+    {
+        let open_workout_fn = open_workout_fn.clone();
         use_effect_with_deps(
             move |_| {
                 let open: Vec<SessionMeta> = load_sessions_index()
@@ -365,43 +418,9 @@ fn app() -> Html {
 
                 if let Some(meta) = open.iter().max_by_key(|s| &s.updated) {
                     if let Some(data) = load_schedules().into_iter().find(|w| w.id == meta.workout_id) {
-                        let day      = meta.day.clone();
-                        let day_idx  = data.giorni.iter().position(|d| d.giorno == day).unwrap_or(0);
-                        let open_day = open_sessions_for_day(&data.id, &day);
-
-                        match open_day.len() {
-                            0 => {
-                                day_index.set(day_idx);
-                                selected_exercise.set(0);
-                                saved_sets.set(vec![]);
-                                weight_inputs.set(HashMap::new());
-                                reps_inputs.set(HashMap::new());
-                                current_session_id.set(String::new());
-                                workout.set(Some(data));
-                                error.set(None);
-                            }
-                            1 => {
-                                if let Some((sid, sets, active_ex)) = find_open_session(&data.id, &day) {
-                                    let (wi, ri) = inputs_from_sets(&sets);
-                                    day_index.set(day_idx);
-                                    selected_exercise.set(active_ex);
-                                    saved_sets.set(sets);
-                                    weight_inputs.set(wi);
-                                    reps_inputs.set(ri);
-                                    current_session_id.set(sid);
-                                }
-                                workout.set(Some(data));
-                                error.set(None);
-                            }
-                            _ => {
-                                day_index.set(day_idx);
-                                weight_inputs.set(HashMap::new());
-                                reps_inputs.set(HashMap::new());
-                                resume_candidates.set(open_day);
-                                workout.set(Some(data));
-                                error.set(None);
-                            }
-                        }
+                        let day_idx = data.giorni.iter()
+                            .position(|d| d.giorno == meta.day).unwrap_or(0);
+                        open_workout_fn(data, day_idx);
                     }
                 }
                 || ()
@@ -410,79 +429,17 @@ fn app() -> Html {
         );
     }
 
-    // ── Shared workout-open logic ────────────────────────────────────────────
-    // Called after a Workout is successfully parsed (file or catalog).
-    // Saves/updates the schedule, finds or creates the session for day 0,
-    // and updates all relevant state handles.
-    macro_rules! open_workout {
-        ($data:expr,
-         $workout:expr, $error:expr,
-         $day_index:expr, $selected_exercise:expr,
-         $saved_sets:expr, $weight_inputs:expr, $reps_inputs:expr,
-         $current_session_id:expr, $resume_candidates:expr) => {{
-            let data: Workout = $data;
-            upsert_schedule(&data);
-            let day0_label = data.giorni.get(0).map(|d| d.giorno.as_str()).unwrap_or("");
-            let open = open_sessions_for_day(&data.id, day0_label);
-            match open.len() {
-                0 => {
-                    $day_index.set(0);
-                    $selected_exercise.set(0);
-                    $saved_sets.set(vec![]);
-                    $weight_inputs.set(HashMap::new());
-                    $reps_inputs.set(HashMap::new());
-                    $current_session_id.set(String::new());
-                    $workout.set(Some(data));
-                    $error.set(None);
-                }
-                1 => {
-                    let day_idx = data.giorni.iter()
-                        .position(|d| d.giorno == open[0].day)
-                        .unwrap_or(0);
-                    let (sid, sets, active_ex) = find_open_session(&data.id, &open[0].day)
-                        .unwrap_or((String::new(), vec![], 0));
-                    let (wi, ri) = inputs_from_sets(&sets);
-                    $day_index.set(day_idx);
-                    $selected_exercise.set(active_ex);
-                    $saved_sets.set(sets);
-                    $weight_inputs.set(wi);
-                    $reps_inputs.set(ri);
-                    $current_session_id.set(sid);
-                    $workout.set(Some(data));
-                    $error.set(None);
-                }
-                _ => {
-                    $day_index.set(0);
-                    $weight_inputs.set(HashMap::new());
-                    $reps_inputs.set(HashMap::new());
-                    $resume_candidates.set(open);
-                    $workout.set(Some(data));
-                    $error.set(None);
-                }
-            }
-        }};
-    }
-
     // Shared: parse a JSON string into a Workout and apply it to the app state.
     // Used by both on_file_change and on_load_catalog_entry.
     let apply_json: Rc<dyn Fn(String)> = {
-        let workout            = workout.clone();
-        let error              = error.clone();
-        let day_index          = day_index.clone();
-        let selected_exercise  = selected_exercise.clone();
-        let saved_sets         = saved_sets.clone();
-        let weight_inputs      = weight_inputs.clone();
-        let reps_inputs        = reps_inputs.clone();
-        let current_session_id = current_session_id.clone();
-        let resume_candidates  = resume_candidates.clone();
+        let error           = error.clone();
+        let open_workout_fn = open_workout_fn.clone();
         Rc::new(move |text: String| {
             match serde_json::from_str::<Workout>(&text) {
-                Ok(data) => open_workout!(
-                    data, workout, error,
-                    day_index, selected_exercise, saved_sets,
-                    weight_inputs, reps_inputs,
-                    current_session_id, resume_candidates
-                ),
+                Ok(data) => {
+                    upsert_schedule(&data);
+                    open_workout_fn(data, 0);
+                }
                 Err(e) => error.set(Some(format!("Errore JSON: {}", e))),
             }
         })
@@ -564,12 +521,7 @@ fn app() -> Html {
     let on_change_day = {
         let workout            = workout.clone();
         let day_index          = day_index.clone();
-        let selected_exercise  = selected_exercise.clone();
-        let saved_sets         = saved_sets.clone();
-        let weight_inputs      = weight_inputs.clone();
-        let reps_inputs        = reps_inputs.clone();
-        let current_session_id = current_session_id.clone();
-        let resume_candidates  = resume_candidates.clone();
+        let apply_day_session  = apply_day_session.clone();
         let cardio_elapsed     = cardio_elapsed.clone();
         let cardio_running     = cardio_running.clone();
         let cardio_handle      = cardio_handle.clone();
@@ -577,37 +529,11 @@ fn app() -> Html {
             cardio_handle.borrow_mut().take();
             cardio_running.set(false);
             cardio_elapsed.set(0);
-            day_index.set(idx);
-            if let Some(w) = &*workout {
-                if let Some(day) = w.giorni.get(idx) {
-                    let open = open_sessions_for_day(&w.id, &day.giorno);
-                    match open.len() {
-                        0 => {
-                            saved_sets.set(vec![]);
-                            weight_inputs.set(HashMap::new());
-                            reps_inputs.set(HashMap::new());
-                            current_session_id.set(String::new());
-                            selected_exercise.set(0);
-                        }
-                        1 => {
-                            let (sid, sets, active_ex) = find_open_session(&w.id, &day.giorno)
-                                .unwrap_or((String::new(), vec![], 0));
-                            let (wi, ri) = inputs_from_sets(&sets);
-                            saved_sets.set(sets);
-                            weight_inputs.set(wi);
-                            reps_inputs.set(ri);
-                            current_session_id.set(sid);
-                            selected_exercise.set(active_ex);
-                        }
-                        _ => {
-                            resume_candidates.set(open);
-                            saved_sets.set(vec![]);
-                            weight_inputs.set(HashMap::new());
-                            reps_inputs.set(HashMap::new());
-                            current_session_id.set(String::new());
-                        }
-                    }
-                }
+            match workout.as_ref()
+                .and_then(|w| w.giorni.get(idx).map(|d| (w.id.clone(), d.giorno.clone())))
+            {
+                Some((wid, day)) => apply_day_session(idx, resolve_day_session(&wid, &day)),
+                None             => day_index.set(idx),
             }
         })
     };
@@ -1181,8 +1107,8 @@ fn app() -> Html {
         let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
         let viewing_history    = viewing_history.clone();
-        let resume_candidates  = resume_candidates.clone();
         let error              = error.clone();
+        let open_workout_fn    = open_workout_fn.clone();
         Callback::from(move |meta: SessionMeta| {
             let Some(data) = load_schedules().into_iter().find(|w| w.id == meta.workout_id)
                 else { return };
@@ -1201,98 +1127,22 @@ fn app() -> Html {
                     error.set(None);
                 }
             } else {
-                let day = data.giorni.get(day_idx).map(|d| d.giorno.clone()).unwrap_or_default();
-                let open_day = open_sessions_for_day(&data.id, &day);
-                match open_day.len() {
-                    1 => {
-                        if let Some((sid, sets, active_ex)) = find_open_session(&data.id, &day) {
-                            let (wi, ri) = inputs_from_sets(&sets);
-                            day_index.set(day_idx);
-                            selected_exercise.set(active_ex);
-                            saved_sets.set(sets);
-                            weight_inputs.set(wi);
-                            reps_inputs.set(ri);
-                            current_session_id.set(sid);
-                        }
-                        workout.set(Some(data));
-                        error.set(None);
-                    }
-                    0 => {
-                        day_index.set(day_idx);
-                        selected_exercise.set(0);
-                        saved_sets.set(vec![]);
-                        weight_inputs.set(HashMap::new());
-                        reps_inputs.set(HashMap::new());
-                        current_session_id.set(String::new());
-                        workout.set(Some(data));
-                        error.set(None);
-                    }
-                    _ => {
-                        day_index.set(day_idx);
-                        weight_inputs.set(HashMap::new());
-                        reps_inputs.set(HashMap::new());
-                        resume_candidates.set(open_day);
-                        workout.set(Some(data));
-                        error.set(None);
-                    }
-                }
+                open_workout_fn(data, day_idx);
             }
         })
     };
 
     let on_open_suggestion = {
-        let workout            = workout.clone();
-        let catalog            = catalog.clone();
-        let user_preferred     = user_preferred.clone();
-        let day_index          = day_index.clone();
-        let selected_exercise  = selected_exercise.clone();
-        let saved_sets         = saved_sets.clone();
-        let weight_inputs      = weight_inputs.clone();
-        let reps_inputs        = reps_inputs.clone();
-        let current_session_id = current_session_id.clone();
-        let resume_candidates  = resume_candidates.clone();
-        let error              = error.clone();
+        let catalog         = catalog.clone();
+        let user_preferred  = user_preferred.clone();
+        let open_workout_fn = open_workout_fn.clone();
         Callback::from(move |_| {
             let sessions  = load_sessions_index();
             let schedules = load_schedules();
             let Some((data, day_idx)) = compute_suggestion_workout(
                 &sessions, &schedules, &catalog, &user_preferred,
             ) else { return };
-            let day = data.giorni.get(day_idx).map(|d| d.giorno.clone()).unwrap_or_default();
-            let open_day = open_sessions_for_day(&data.id, &day);
-            match open_day.len() {
-                1 => {
-                    if let Some((sid, sets, active_ex)) = find_open_session(&data.id, &day) {
-                        let (wi, ri) = inputs_from_sets(&sets);
-                        day_index.set(day_idx);
-                        selected_exercise.set(active_ex);
-                        saved_sets.set(sets);
-                        weight_inputs.set(wi);
-                        reps_inputs.set(ri);
-                        current_session_id.set(sid);
-                    }
-                    workout.set(Some(data));
-                    error.set(None);
-                }
-                0 => {
-                    day_index.set(day_idx);
-                    selected_exercise.set(0);
-                    saved_sets.set(vec![]);
-                    weight_inputs.set(HashMap::new());
-                    reps_inputs.set(HashMap::new());
-                    current_session_id.set(String::new());
-                    workout.set(Some(data));
-                    error.set(None);
-                }
-                _ => {
-                    day_index.set(day_idx);
-                    weight_inputs.set(HashMap::new());
-                    reps_inputs.set(HashMap::new());
-                    resume_candidates.set(open_day);
-                    workout.set(Some(data));
-                    error.set(None);
-                }
-            }
+            open_workout_fn(data, day_idx);
         })
     };
 
