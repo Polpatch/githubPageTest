@@ -51,18 +51,6 @@ fn release_wake_lock(slot: &Rc<RefCell<Option<JsValue>>>) {
     }
 }
 
-/// Send a message to the Service Worker for timer scheduling/cancellation.
-/// Silently does nothing if no SW is available.
-fn sw_post(sw: &Rc<RefCell<Option<web_sys::ServiceWorker>>>, action: &str, fire_at: Option<f64>) {
-    if let Some(worker) = sw.borrow().as_ref() {
-        let obj = js_sys::Object::new();
-        let _ = js_sys::Reflect::set(&obj, &"action".into(), &action.into());
-        if let Some(ts) = fire_at {
-            let _ = js_sys::Reflect::set(&obj, &"fire_at".into(), &ts.into());
-        }
-        let _ = worker.post_message(&JsValue::from(obj));
-    }
-}
 
 /// Build weight_inputs / reps_inputs maps from a saved-sets list so that
 /// input fields are pre-filled when a session is loaded or resumed.
@@ -232,7 +220,6 @@ fn app() -> Html {
     let cardio_handle           = use_mut_ref(|| None::<Interval>);
     let timer_end_ts            = use_mut_ref(|| 0.0f64);
     let visibility_listener     = use_mut_ref(|| None::<Closure<dyn Fn()>>);
-    let sw_handle               = use_mut_ref(|| None::<web_sys::ServiceWorker>);
     // ID of the currently active session (empty = no workout loaded)
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
@@ -785,7 +772,6 @@ fn app() -> Html {
         let timer_left         = timer_left.clone();
         let timer_total        = timer_total.clone();
         let timer_end_ts       = timer_end_ts.clone();
-        let sw_handle          = sw_handle.clone();
         Callback::from(move |_: ()| {
             // 1. Stop the interval
             timer_handle.borrow_mut().take();
@@ -793,7 +779,6 @@ fn app() -> Html {
             timer_left.set(0);
             timer_total.set(0);
             *timer_end_ts.borrow_mut() = 0.0;
-            sw_post(&sw_handle, "cancel", None);
             // 2. Save the next incomplete set (mirrors timer's at-zero logic)
             if let Some(workout) = &*workout {
                 if let Some(day) = workout.giorni.get(*day_index) {
@@ -870,20 +855,12 @@ fn app() -> Html {
         let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
         let timer_end_ts       = timer_end_ts.clone();
-        let sw_handle          = sw_handle.clone();
         Callback::from(move |_: ()| {
-            // iOS requires requestPermission() to be called synchronously from a
-            // user gesture — this is the earliest tap that makes sense to ask.
-            if let Ok(promise) = web_sys::Notification::request_permission() {
-                spawn_local(async move { let _ = JsFuture::from(promise).await; });
-            }
-
             if *timer_running {
                 // Pause: stop the interval but keep timer_left intact
                 timer_handle.borrow_mut().take();
                 timer_running.set(false);
                 *timer_end_ts.borrow_mut() = 0.0;
-                sw_post(&sw_handle, "cancel", None);
                 return;
             }
             if let Some(workout) = &*workout_state {
@@ -902,7 +879,6 @@ fn app() -> Html {
 
                         let end_ts = js_sys::Date::now() + start_from as f64 * 1000.0;
                         *timer_end_ts.borrow_mut() = end_ts;
-                        sw_post(&sw_handle, "schedule", Some(end_ts));
 
                         let timer_left_state           = timer_left.clone();
                         let timer_running_inner        = timer_running.clone();
@@ -915,7 +891,6 @@ fn app() -> Html {
                         let reps_inputs_for_timer      = reps_inputs.clone();
                         let session_id_for_timer       = current_session_id.clone();
                         let end_ref                    = timer_end_ts.clone();
-                        let sw_for_timer               = sw_handle.clone();
 
                         let handle = Interval::new(1000, move || {
                             let end  = *end_ref.borrow();
@@ -999,7 +974,6 @@ fn app() -> Html {
                                 }
                                 timer_handle_inner.borrow_mut().take();
                                 *end_ref.borrow_mut() = 0.0;
-                                sw_post(&sw_for_timer, "cancel", None);
                             }
                         });
                         *timer_handle.borrow_mut() = Some(handle);
@@ -1103,14 +1077,12 @@ fn app() -> Html {
         let cardio_running         = cardio_running.clone();
         let cardio_handle          = cardio_handle.clone();
         let timer_end_ts           = timer_end_ts.clone();
-        let sw_handle              = sw_handle.clone();
         Rc::new(move || {
             timer_handle.borrow_mut().take();
             timer_running.set(false);
             timer_left.set(0);
             timer_total.set(0);
             *timer_end_ts.borrow_mut() = 0.0;
-            sw_post(&sw_handle, "cancel", None);
             cardio_handle.borrow_mut().take();
             cardio_running.set(false);
             cardio_elapsed.set(0);
@@ -1379,37 +1351,6 @@ fn app() -> Html {
         );
     }
 
-    // ── Service Worker handle + notification permission ──────────────────────
-    // Grab the already-registered SW so we can postMessage it later.
-    // Tries controller() immediately (fast path), then falls back to ready()
-    // for the first-load case where the SW is still activating.
-    {
-        let sw_handle = sw_handle.clone();
-        use_effect_with_deps(
-            move |_| {
-                spawn_local(async move {
-                    let Some(window) = web_sys::window() else { return };
-                    let sw_container = window.navigator().service_worker();
-
-                    // Fast path: controller is set when SW already controls the page
-                    if let Some(ctrl) = sw_container.controller() {
-                        *sw_handle.borrow_mut() = Some(ctrl);
-                        return;
-                    }
-
-                    // Slow path: wait for SW to be ready (covers first-load case)
-                    if let Ok(ready_promise) = sw_container.ready() {
-                        if let Ok(reg) = JsFuture::from(ready_promise).await {
-                            let reg: web_sys::ServiceWorkerRegistration = reg.unchecked_into();
-                            *sw_handle.borrow_mut() = reg.active();
-                        }
-                    }
-                });
-                || ()
-            },
-            (),
-        )
-    }
 
     // ── Session elapsed timer ────────────────────────────────────────────────
     {
