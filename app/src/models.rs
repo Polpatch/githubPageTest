@@ -189,6 +189,40 @@ pub fn open_sessions_for_day(workout_id: &str, day_label: &str) -> Vec<SessionMe
         .collect()
 }
 
+/// How a day's open-session state resolves when (re)opening that day.
+pub enum DaySession {
+    /// No open session — start with a clean slate.
+    Fresh,
+    /// Exactly one open session — resume it.
+    Resume {
+        session_id: String,
+        sets: Vec<CompletedSet>,
+        active_exercise: usize,
+    },
+    /// Multiple open sessions — caller must show the resume/disambiguation dialog.
+    Disambiguate(Vec<SessionMeta>),
+}
+
+/// Resolve the open-session state for `workout_id` + `day_label`:
+/// 0 open sessions → `Fresh`, exactly 1 → `Resume`, more than 1 → `Disambiguate`.
+/// Single source of truth for the branch that used to be copy-pasted across
+/// auto-resume, day change, calendar select, and suggestion entry points.
+pub fn resolve_day_session(workout_id: &str, day_label: &str) -> DaySession {
+    let open = open_sessions_for_day(workout_id, day_label);
+    match open.len() {
+        0 => DaySession::Fresh,
+        1 => match find_open_session(workout_id, day_label) {
+            Some((session_id, sets, active_exercise)) => DaySession::Resume {
+                session_id,
+                sets,
+                active_exercise,
+            },
+            None => DaySession::Fresh,
+        },
+        _ => DaySession::Disambiguate(open),
+    }
+}
+
 /// Create and persist a brand-new session for a day. Called lazily on first set.
 /// Idempotent: if an open session already exists for this day, returns its id.
 pub fn create_session_for_day(workout: &Workout, day_idx: usize) -> String {
