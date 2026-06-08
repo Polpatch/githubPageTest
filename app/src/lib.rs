@@ -640,65 +640,34 @@ fn app() -> Html {
             if let Some(workout) = &*workout {
                 if let Some(day) = workout.giorni.get(*day_index) {
                     if let Some(exercise) = day.esercizi.get(*selected_exercise) {
-                        let peso = weight_inputs
+                        // Manual save: the user explicitly picked this set, so use the
+                        // weight exactly as typed (no fallback to a previous set).
+                        let weight_str = weight_inputs
                             .get(&exercise.id)
                             .and_then(|v| v.get(set_index))
-                            .and_then(|v| v.parse::<f32>().ok());
+                            .cloned()
+                            .unwrap_or_default();
+                        let peso = weight_str.parse::<f32>().ok();
                         let reps = reps_inputs
                             .get(&exercise.id)
                             .and_then(|v| v.get(set_index))
                             .cloned();
-                        let list = upsert_completed_set(
-                            (*saved_sets).clone(), exercise,
-                            (set_index + 1) as u32, peso, reps, None,
-                        );
-
                         let current_idx = *selected_exercise;
-                        let ex_done = list.iter()
-                            .filter(|s| s.exercise_id == exercise.id)
-                            .count() >= exercise.serie as usize;
-                        let next_active = if ex_done {
-                            let next = next_incomplete_exercise(day, &list, current_idx);
-                            if next != current_idx { selected_exercise.set(next); }
-                            next
-                        } else {
-                            current_idx
-                        };
-
-                        // Lazy session creation: create only on first set registration
-                        let sid = {
-                            let current = (*current_session_id).clone();
-                            if current.is_empty() {
-                                let new_sid = create_session_for_day(workout, *day_index);
-                                current_session_id.set(new_sid.clone());
-                                new_sid
-                            } else {
-                                current
-                            }
-                        };
-                        let total = total_day_sets(workout, &day.giorno);
-                        update_session_sets(&workout.id, &sid, &list, next_active, total);
-                        saved_sets.set(list);
-                        let next_si = set_index + 1;
-                        if next_si < exercise.serie as usize {
-                            let cur_w = weight_inputs
-                                .get(&exercise.id)
-                                .and_then(|v| v.get(set_index))
-                                .cloned()
-                                .unwrap_or_default();
-                            if !cur_w.is_empty() {
-                                let already_set = weight_inputs
-                                    .get(&exercise.id)
-                                    .and_then(|v| v.get(next_si))
-                                    .map(|v| !v.is_empty())
-                                    .unwrap_or(false);
-                                if !already_set {
-                                    weight_inputs.set(update_input_map(
-                                        (*weight_inputs).clone(), exercise.id.clone(), next_si, cur_w,
-                                    ));
-                                }
-                            }
+                        let reg = register_set(
+                            workout, day, *day_index, exercise, current_idx,
+                            (set_index + 1) as u32, peso, reps, &weight_str,
+                            (*saved_sets).clone(), &weight_inputs, &current_session_id,
+                        );
+                        if reg.session_created { current_session_id.set(reg.session_id); }
+                        if reg.next_active_exercise != current_idx {
+                            selected_exercise.set(reg.next_active_exercise);
                         }
+                        if let Some((idx, val)) = reg.prefill_weight {
+                            weight_inputs.set(update_input_map(
+                                (*weight_inputs).clone(), exercise.id.clone(), idx, val,
+                            ));
+                        }
+                        saved_sets.set(reg.sets);
                     }
                 }
             }
@@ -826,49 +795,31 @@ fn app() -> Html {
                             .unwrap_or(existing.len() as u32 + 1);
                         if next_set > exercise.serie { return; }
                         let next_idx = (next_set - 1) as usize;
-                        let peso_str = get_input_with_fallback(
+                        // Auto-save: the user didn't necessarily touch the field, so
+                        // fall back to the most recent weight entered for this exercise.
+                        let weight_str = get_input_with_fallback(
                             &weight_inputs, &exercise.id, next_idx, "",
                         );
-                        let peso = peso_str.parse::<f32>().ok();
+                        let peso = weight_str.parse::<f32>().ok();
                         let reps = reps_inputs.get(&exercise.id)
                             .and_then(|v| v.get(next_idx))
                             .cloned();
-                        let list = upsert_completed_set(
-                            (*saved_sets).clone(), exercise, next_set, peso, reps, None,
-                        );
                         let current_idx = *selected_exercise;
-                        let ex_done = list.iter()
-                            .filter(|s| s.exercise_id == exercise.id)
-                            .count() >= exercise.serie as usize;
-                        let next_active = if ex_done {
-                            let next = next_incomplete_exercise(day, &list, current_idx);
-                            if next != current_idx { selected_exercise.set(next); }
-                            next
-                        } else { current_idx };
-                        let sid = {
-                            let cur = (*current_session_id).clone();
-                            if cur.is_empty() {
-                                let new_sid = create_session_for_day(workout, *day_index);
-                                current_session_id.set(new_sid.clone());
-                                new_sid
-                            } else { cur }
-                        };
-                        let total = total_day_sets(workout, &day.giorno);
-                        update_session_sets(&workout.id, &sid, &list, next_active, total);
-                        saved_sets.set(list);
-                        let after_idx = next_idx + 1;
-                        if after_idx < exercise.serie as usize {
-                            let already_set = weight_inputs
-                                .get(&exercise.id)
-                                .and_then(|v| v.get(after_idx))
-                                .map(|v| !v.is_empty())
-                                .unwrap_or(false);
-                            if !already_set && !peso_str.is_empty() {
-                                weight_inputs.set(update_input_map(
-                                    (*weight_inputs).clone(), exercise.id.clone(), after_idx, peso_str.clone(),
-                                ));
-                            }
+                        let reg = register_set(
+                            workout, day, *day_index, exercise, current_idx,
+                            next_set, peso, reps, &weight_str,
+                            (*saved_sets).clone(), &weight_inputs, &current_session_id,
+                        );
+                        if reg.session_created { current_session_id.set(reg.session_id); }
+                        if reg.next_active_exercise != current_idx {
+                            selected_exercise.set(reg.next_active_exercise);
                         }
+                        if let Some((idx, val)) = reg.prefill_weight {
+                            weight_inputs.set(update_input_map(
+                                (*weight_inputs).clone(), exercise.id.clone(), idx, val,
+                            ));
+                        }
+                        saved_sets.set(reg.sets);
                     }
                 }
             }
@@ -947,63 +898,36 @@ fn app() -> Html {
                                                 .find(|n| !existing.contains(n))
                                                 .unwrap_or(existing.len() as u32 + 1);
                                             let next_idx = (next_set - 1) as usize;
-                                            let peso_str = get_input_with_fallback(
+                                            // Auto-save on timer expiry: fall back to the
+                                            // most recent weight entered for this exercise.
+                                            let weight_str = get_input_with_fallback(
                                                 &weight_inputs_for_timer, &exercise.id, next_idx, "",
                                             );
-                                            let peso = peso_str.parse::<f32>().ok();
+                                            let peso = weight_str.parse::<f32>().ok();
                                             let reps = reps_inputs_for_timer
                                                 .get(&exercise.id)
                                                 .and_then(|v| v.get(next_idx))
                                                 .cloned();
-                                            let list = upsert_completed_set(
-                                                (*saved_sets_for_timer).clone(),
-                                                exercise, next_set, peso, reps, None,
-                                            );
-
                                             let current_idx = *selected_ex_for_timer;
-                                            let ex_done = list.iter()
-                                                .filter(|s| s.exercise_id == exercise.id)
-                                                .count() >= exercise.serie as usize;
-                                            let next_active = if ex_done {
-                                                let next = next_incomplete_exercise(day, &list, current_idx);
-                                                if next != current_idx { selected_ex_for_timer.set(next); }
-                                                next
-                                            } else {
-                                                current_idx
-                                            };
-
-                                            let sid = {
-                                                let current = (*session_id_for_timer).clone();
-                                                if current.is_empty() {
-                                                    let new_sid = create_session_for_day(workout, *day_index_for_timer);
-                                                    session_id_for_timer.set(new_sid.clone());
-                                                    new_sid
-                                                } else {
-                                                    current
-                                                }
-                                            };
-                                            let total = total_day_sets(workout, &day.giorno);
-                                            update_session_sets(
-                                                &workout.id, &sid, &list,
-                                                next_active, total,
+                                            let reg = register_set(
+                                                workout, day, *day_index_for_timer, exercise,
+                                                current_idx, next_set, peso, reps, &weight_str,
+                                                (*saved_sets_for_timer).clone(),
+                                                &weight_inputs_for_timer, &session_id_for_timer,
                                             );
-                                            saved_sets_for_timer.set(list);
-                                            let after_idx = next_idx + 1;
-                                            if after_idx < exercise.serie as usize {
-                                                let already_set = weight_inputs_for_timer
-                                                    .get(&exercise.id)
-                                                    .and_then(|v| v.get(after_idx))
-                                                    .map(|v| !v.is_empty())
-                                                    .unwrap_or(false);
-                                                if !already_set && !peso_str.is_empty() {
-                                                    weight_inputs_for_timer.set(update_input_map(
-                                                        (*weight_inputs_for_timer).clone(),
-                                                        exercise.id.clone(),
-                                                        after_idx,
-                                                        peso_str.clone(),
-                                                    ));
-                                                }
+                                            if reg.session_created {
+                                                session_id_for_timer.set(reg.session_id);
                                             }
+                                            if reg.next_active_exercise != current_idx {
+                                                selected_ex_for_timer.set(reg.next_active_exercise);
+                                            }
+                                            if let Some((idx, val)) = reg.prefill_weight {
+                                                weight_inputs_for_timer.set(update_input_map(
+                                                    (*weight_inputs_for_timer).clone(),
+                                                    exercise.id.clone(), idx, val,
+                                                ));
+                                            }
+                                            saved_sets_for_timer.set(reg.sets);
                                         }
                                     }
                                 }

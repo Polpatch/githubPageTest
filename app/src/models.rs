@@ -390,6 +390,91 @@ pub fn next_incomplete_exercise(
         .unwrap_or(current_idx)
 }
 
+/// Outcome of registering a set — describes what the caller must apply to its
+/// UI state handles. Returned by [`register_set`] so the persistence logic lives
+/// in one place while the view layer only mirrors the result into `use_state`s.
+pub struct SetRegistration {
+    /// Updated sets list to store in `saved_sets`.
+    pub sets: Vec<CompletedSet>,
+    /// Index of the exercise that should now be active.
+    pub next_active_exercise: usize,
+    /// Session id used (created lazily if none existed).
+    pub session_id: String,
+    /// `true` when a new session was created — caller must update `current_session_id`.
+    pub session_created: bool,
+    /// When `Some((idx, value))`, caller should prefill `weight_inputs` at `idx`.
+    pub prefill_weight: Option<(usize, String)>,
+}
+
+/// Register `set_number` (1-based) of `exercise` with the given peso/reps and
+/// persist it: upserts the set, advances the active exercise when the current one
+/// is complete, lazily creates the session, updates storage, and computes whether
+/// the next set's weight input should be pre-filled.
+///
+/// This is the single source of truth shared by manual save, skip-timer, and the
+/// recovery-timer auto-save. Callers own only the *policy* differences (which set
+/// number, whether the weight uses fallback, timer teardown) and then mirror the
+/// returned [`SetRegistration`] into their state handles.
+#[allow(clippy::too_many_arguments)]
+pub fn register_set(
+    workout: &Workout,
+    day: &Day,
+    day_index: usize,
+    exercise: &Exercise,
+    current_exercise_idx: usize,
+    set_number: u32,
+    peso: Option<f32>,
+    reps: Option<String>,
+    weight_str: &str,
+    prior_sets: Vec<CompletedSet>,
+    weight_inputs: &HashMap<String, Vec<String>>,
+    current_session_id: &str,
+) -> SetRegistration {
+    let list = upsert_completed_set(prior_sets, exercise, set_number, peso, reps, None);
+
+    let ex_done = list.iter()
+        .filter(|s| s.exercise_id == exercise.id)
+        .count() >= exercise.serie as usize;
+    let next_active_exercise = if ex_done {
+        next_incomplete_exercise(day, &list, current_exercise_idx)
+    } else {
+        current_exercise_idx
+    };
+
+    let (session_id, session_created) = if current_session_id.is_empty() {
+        (create_session_for_day(workout, day_index), true)
+    } else {
+        (current_session_id.to_string(), false)
+    };
+
+    let total = total_day_sets(workout, &day.giorno);
+    update_session_sets(&workout.id, &session_id, &list, next_active_exercise, total);
+
+    // Propagate the weight to the next set's input slot, but only if that slot is
+    // still empty (don't overwrite a value the user already typed ahead).
+    let next_idx = set_number as usize; // 1-based set number == 0-based index of the next set
+    let next_slot_filled = weight_inputs.get(&exercise.id)
+        .and_then(|v| v.get(next_idx))
+        .map(|v| !v.is_empty())
+        .unwrap_or(false);
+    let prefill_weight = if next_idx < exercise.serie as usize
+        && !weight_str.is_empty()
+        && !next_slot_filled
+    {
+        Some((next_idx, weight_str.to_string()))
+    } else {
+        None
+    };
+
+    SetRegistration {
+        sets: list,
+        next_active_exercise,
+        session_id,
+        session_created,
+        prefill_weight,
+    }
+}
+
 /// Read the input value for `exercise_id` at `idx`, falling back to the most
 /// recent non-empty value at a lower index, then to `default`.
 pub fn get_input_with_fallback(
