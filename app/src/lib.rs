@@ -14,7 +14,7 @@ use gloo_net::http::Request;
 use gloo_timers::callback::Interval;
 use models::{load_user_preferred, save_user_preferred, TimerState, *};
 use recovery_timer::use_recovery_timer;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -191,6 +191,18 @@ fn trigger_download(filename: &str, content: &str) {
     let _ = web_sys::Url::revoke_object_url(&url);
 }
 
+/// Live mirror of the state the recovery-timer's at-zero save needs. Refreshed
+/// every render so the save closure — captured when the timer STARTS — reads
+/// current data instead of a stale snapshot from the starting render.
+#[derive(Default)]
+struct RegLive {
+    saved_sets: Vec<CompletedSet>,
+    weight_inputs: HashMap<String, Vec<String>>,
+    reps_inputs: HashMap<String, Vec<String>>,
+    session_id: String,
+    selected_exercise: usize,
+}
+
 #[function_component(App)]
 fn app() -> Html {
     let workout            = use_state(|| None::<Workout>);
@@ -221,6 +233,21 @@ fn app() -> Html {
     let current_session_id  = use_state(|| String::new());
     // Non-empty when multiple open sessions exist and user must choose
     let resume_candidates: UseStateHandle<Vec<SessionMeta>> = use_state(Vec::new);
+
+    // Exercise the recovery timer is counting down FOR. Set once on a fresh
+    // start and kept across pause/resume + exercise navigation, so the at-zero
+    // save always completes the right exercise's set.
+    let timer_target = use_mut_ref(|| 0usize);
+
+    // Live mirror (see RegLive) — refreshed below on every render.
+    let reg_live = use_mut_ref(RegLive::default);
+    *reg_live.borrow_mut() = RegLive {
+        saved_sets: (*saved_sets).clone(),
+        weight_inputs: (*weight_inputs).clone(),
+        reps_inputs: (*reps_inputs).clone(),
+        session_id: (*current_session_id).clone(),
+        selected_exercise: *selected_exercise,
+    };
 
     // ── Export / Import ──────────────────────────────────────────────────────
     let on_export = Callback::from(move |_| {
@@ -573,14 +600,15 @@ fn app() -> Html {
                 cardio_handle.borrow_mut().take();
                 cardio_running.set(false);
             } else {
-                let start = *cardio_elapsed;
-                let count = Rc::new(Cell::new(start));
-                let count2 = count.clone();
+                // Wall-clock anchored (same method as the recovery timer's clock):
+                // recompute from `Date.now()` each tick so the elapsed time stays
+                // correct after the device sleeps / screen locks in background.
+                let base = *cardio_elapsed;
+                let anchor = js_sys::Date::now();
                 let ce = cardio_elapsed.clone();
                 let h = Interval::new(1000, move || {
-                    let next = count2.get() + 1;
-                    count2.set(next);
-                    ce.set(next);
+                    let n = base + ((js_sys::Date::now() - anchor).max(0.0) / 1000.0) as u32;
+                    ce.set(n);
                 });
                 *cardio_handle.borrow_mut() = Some(h);
                 cardio_running.set(true);
@@ -636,23 +664,34 @@ fn app() -> Html {
         })
     };
 
-    // ── Register the next incomplete set ──────────────────────────────────────
-    // Shared by skip-timer and the recovery timer's at-zero auto-save: find the
-    // first uncompleted set for the current exercise, save it with the
-    // fallback weight, and mirror the outcome into the state handles.
-    let register_next_incomplete_set: Rc<dyn Fn()> = {
+    // ── Register the next incomplete set of a SPECIFIC exercise ───────────────
+    // Shared by skip-timer and the recovery timer's at-zero auto-save. Takes the
+    // target exercise index explicitly (the recovery timer captures it when it
+    // STARTS, so the right set is completed even if the user has since navigated
+    // to another exercise). Reads current data from `reg_live` (not a stale
+    // render snapshot) and only moves the view if the user is still on `ex_idx`.
+    let register_set_for: Rc<dyn Fn(usize)> = {
         let workout            = workout.clone();
         let day_index          = day_index.clone();
         let selected_exercise  = selected_exercise.clone();
         let saved_sets         = saved_sets.clone();
         let weight_inputs      = weight_inputs.clone();
-        let reps_inputs        = reps_inputs.clone();
         let current_session_id = current_session_id.clone();
-        Rc::new(move || {
+        let reg_live           = reg_live.clone();
+        Rc::new(move |ex_idx: usize| {
             let Some(workout) = &*workout else { return };
             let Some(day) = workout.giorni.get(*day_index) else { return };
-            let Some(exercise) = day.esercizi.get(*selected_exercise) else { return };
-            let existing: HashSet<u32> = (*saved_sets).iter()
+            let Some(exercise) = day.esercizi.get(ex_idx) else { return };
+
+            // Snapshot the live state once (current as of the last render).
+            let (sets, wi_live, ri_live, sid_live, cur_selected) = {
+                let live = reg_live.borrow();
+                (live.saved_sets.clone(), live.weight_inputs.clone(),
+                 live.reps_inputs.clone(), live.session_id.clone(),
+                 live.selected_exercise)
+            };
+
+            let existing: HashSet<u32> = sets.iter()
                 .filter(|s| s.exercise_id == exercise.id)
                 .map(|s| s.set_number)
                 .collect();
@@ -663,24 +702,24 @@ fn app() -> Html {
             let next_idx = (next_set - 1) as usize;
             // Auto-save: the user didn't necessarily touch the field, so fall
             // back to the most recent weight entered for this exercise.
-            let weight_str = get_input_with_fallback(&weight_inputs, &exercise.id, next_idx, "");
+            let weight_str = get_input_with_fallback(&wi_live, &exercise.id, next_idx, "");
             let peso = weight_str.parse::<f32>().ok();
-            let reps = reps_inputs.get(&exercise.id)
+            let reps = ri_live.get(&exercise.id)
                 .and_then(|v| v.get(next_idx))
                 .cloned();
-            let current_idx = *selected_exercise;
             let reg = register_set(
-                workout, day, *day_index, exercise, current_idx,
+                workout, day, *day_index, exercise, ex_idx,
                 next_set, peso, reps, &weight_str,
-                (*saved_sets).clone(), &weight_inputs, &current_session_id,
+                sets, &wi_live, &sid_live,
             );
             if reg.session_created { current_session_id.set(reg.session_id); }
-            if reg.next_active_exercise != current_idx {
+            // Only advance the view if the user is still on the exercise saved.
+            if cur_selected == ex_idx && reg.next_active_exercise != ex_idx {
                 selected_exercise.set(reg.next_active_exercise);
             }
             if let Some((idx, val)) = reg.prefill_weight {
                 weight_inputs.set(update_input_map(
-                    (*weight_inputs).clone(), exercise.id.clone(), idx, val,
+                    wi_live, exercise.id.clone(), idx, val,
                 ));
             }
             saved_sets.set(reg.sets);
@@ -693,13 +732,15 @@ fn app() -> Html {
         Callback::from(move |_: ()| timer.stop())
     };
 
-    // ── Skip timer — stop + immediately save the next incomplete set ──────────
+    // ── Skip timer — stop + immediately save the set being recovered ──────────
     let on_skip_timer = {
-        let timer         = timer.clone();
-        let register_next = register_next_incomplete_set.clone();
+        let timer        = timer.clone();
+        let register     = register_set_for.clone();
+        let timer_target = timer_target.clone();
         Callback::from(move |_: ()| {
+            let target = *timer_target.borrow();
             timer.stop();
-            register_next();
+            register(target);
         })
     };
 
@@ -709,15 +750,25 @@ fn app() -> Html {
         let workout_state     = workout.clone();
         let day_index         = day_index.clone();
         let selected_exercise = selected_exercise.clone();
-        let register_next     = register_next_incomplete_set.clone();
+        let register          = register_set_for.clone();
+        let timer_target      = timer_target.clone();
         Callback::from(move |_: ()| {
+            // Only a FRESH start (re)binds the target. Pause and resume keep the
+            // exercise the timer was originally started for, so navigating away
+            // (or pausing to peek at another exercise) never re-targets it.
+            let is_fresh = !timer.running && timer.left == 0;
+            if is_fresh {
+                *timer_target.borrow_mut() = *selected_exercise;
+            }
+            let target = *timer_target.borrow();
             let fresh_secs = workout_state.as_ref()
                 .and_then(|w| w.giorni.get(*day_index))
-                .and_then(|d| d.esercizi.get(*selected_exercise))
+                .and_then(|d| d.esercizi.get(target))
                 .and_then(|e| e.recupero)
                 .unwrap_or(90);
-            let register_next = register_next.clone();
-            timer.toggle(fresh_secs, move || register_next());
+            let register = register.clone();
+            let tt = timer_target.clone();
+            timer.toggle(fresh_secs, move || register(*tt.borrow()));
         })
     };
 

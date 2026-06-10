@@ -328,7 +328,7 @@
       .primary-button  { background: var(--btn-primary-bg); color: var(--btn-primary-fg); }
       .primary-button:disabled { opacity: 0.38; cursor: not-allowed; }
       .secondary-button { background: var(--surface-3); color: var(--text); }
-      .timer-toast { position: fixed; top: 12px; left: 12px; right: 12px; z-index: 150; height: 64px; background: var(--surface); border-radius: 18px; box-shadow: 0 4px 24px var(--sh-xl), 0 1px 6px var(--sh-md); display: flex; align-items: center; gap: 14px; padding: 0 20px; }
+      .timer-toast { position: fixed; top: 12px; left: 12px; right: 12px; z-index: 150; height: 64px; background: var(--surface); border-radius: 18px; box-shadow: 0 4px 24px var(--sh-xl), 0 1px 6px var(--sh-md); display: flex; align-items: center; gap: 14px; padding: 0 20px; touch-action: none; }
       .timer-toast-label { flex: 1; font-size: 0.95rem; font-weight: 600; color: var(--text-2); }
       .timer-toast-actions { display: flex; gap: 8px; align-items: center; }
       .timer-action-btn { width: 38px; height: 38px; border-radius: 50%; border: none; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; background: var(--surface-3); color: var(--text-2); transition: background .12s; padding: 0; }
@@ -375,7 +375,7 @@
       .bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; z-index: 90; background: var(--surface); border-radius: 24px 24px 0 0; box-shadow: 0 -4px 24px var(--sh-lg); transition: height 0.28s cubic-bezier(0.4,0,0.2,1); display: flex; flex-direction: column; overflow: hidden; }
       .bottom-sheet--expanded  { height: 62vh; }
       .bottom-sheet--minimized { height: 72px; }
-      .sheet-handle-area { flex-shrink: 0; height: 72px; padding: 0 20px; display: flex; align-items: center; gap: 10px; cursor: pointer; position: relative; user-select: none; -webkit-user-select: none; }
+      .sheet-handle-area { flex-shrink: 0; height: 72px; padding: 0 20px; display: flex; align-items: center; gap: 10px; cursor: pointer; position: relative; user-select: none; -webkit-user-select: none; touch-action: none; }
       .sheet-handle-pill { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 36px; height: 4px; border-radius: 2px; background: var(--border-2); }
       .sheet-ex-name { flex: 1; font-weight: 700; font-size: 1rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-top: 4px; }
       .sheet-progress-mini { font-size: 0.85rem; font-weight: 600; color: var(--text-3); white-space: nowrap; }
