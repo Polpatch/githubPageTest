@@ -5,8 +5,7 @@ mod recovery_timer;
 use components::bottom_sheet::BottomSheet;
 use components::calendar::Calendar;
 use components::catalog_panel::CatalogPanel;
-use components::day_tabs::DayTabs;
-use components::exercise_card::ExerciseCard;
+use components::workout_view::WorkoutView;
 use components::icons::*;
 use gloo_file::callbacks::{read_as_text, FileReader};
 use gloo_file::File as GlooFile;
@@ -1191,6 +1190,11 @@ fn app() -> Html {
         Callback::from(move |_: MouseEvent| sc.set(false))
     };
 
+    let on_toggle_desc = {
+        let de = desc_expanded.clone();
+        Callback::from(move |_: MouseEvent| de.set(!*de))
+    };
+
     // ── Render ───────────────────────────────────────────────────────────────
     let open_menu  = { let m = menu_open.clone(); Callback::from(move |_| m.set(true))  };
     let close_menu = { let m = menu_open.clone(); Callback::from(move |_| m.set(false)) };
@@ -1254,103 +1258,26 @@ fn app() -> Html {
                                 </div>
                             }
                         } else {
-
-                        let day = workout_data.giorni.get(*day_index);
-                        html! {
-                            <div class="workout-details">
-                                if *viewing_history {
-                                    <div class="history-banner">
-                                        <span>{"Stai visualizzando uno storico"}</span>
-                                        <button onclick={on_exit_history.clone()}>
-                                            {"← Torna all'allenamento"}
-                                        </button>
-                                    </div>
-                                }
-                                <section class="workout-meta">
-                                    <div class="meta-label">{ format!("Scheda: {}", workout_data.nome) }</div>
-                                    if let Some(desc) = &workout_data.descrizione {
-                                        if desc.len() > 100 {
-                                            <p class={if *desc_expanded { "meta-desc" } else { "meta-desc meta-desc--clamped" }}>
-                                                { desc.clone() }
-                                            </p>
-                                            <button class="meta-expand-btn" onclick={{
-                                                let de = desc_expanded.clone();
-                                                Callback::from(move |_: MouseEvent| de.set(!*de))
-                                            }}>
-                                                { if *desc_expanded { "Mostra meno ↑" } else { "Mostra di più ↓" } }
-                                            </button>
-                                        } else {
-                                            <p class="meta-desc">{ desc.clone() }</p>
-                                        }
-                                    }
-                                    if let Some(cat) = &workout_data.categoria {
-                                        <div class="meta-tag">{ cat.clone() }</div>
-                                    }
-                                </section>
-
-                                <DayTabs
-                                    giorni={workout_data.giorni.clone()}
+                            html! {
+                                <WorkoutView
+                                    workout={workout_data.clone()}
                                     day_index={*day_index}
-                                    on_change_day={on_change_day}
+                                    selected_exercise={*selected_exercise}
+                                    saved_sets={(*saved_sets).clone()}
+                                    viewing_history={*viewing_history}
+                                    desc_expanded={*desc_expanded}
+                                    session_done={session_done}
+                                    session_total={session_total}
+                                    all_done={all_done}
+                                    elapsed_str={elapsed_str.clone()}
+                                    on_exit_history={on_exit_history.clone()}
+                                    on_toggle_desc={on_toggle_desc.clone()}
+                                    on_change_day={on_change_day.clone()}
+                                    on_select_exercise={on_select_exercise.clone()}
+                                    on_save_and_finish={on_save_and_finish.clone()}
+                                    on_delete_workout={on_delete_workout.clone()}
                                 />
-
-                                { if let Some(day) = day {
-                                    let selected = *selected_exercise;
-                                    html! {
-                                        <>
-                                            <div class="day-header">
-                                                <div class="day-header-row">
-                                                    <h2>{ day.etichetta.clone().unwrap_or_else(|| day.giorno.clone()) }</h2>
-                                                    if session_total > 0 {
-                                                        <span class={classes!(
-                                                            "session-progress-badge",
-                                                            if all_done { Some("session-progress-badge--done") } else { None }
-                                                        )}>
-                                                            { format!("{} / {} serie", session_done, session_total) }
-                                                        </span>
-                                                    }
-                                                </div>
-                                                <p>
-                                                    { format!("{} esercizi", day.esercizi.len()) }
-                                                    if !elapsed_str.is_empty() {
-                                                        { format!(" · {}", elapsed_str.clone()) }
-                                                    }
-                                                </p>
-                                            </div>
-                                            <section class="exercise-list" key={*day_index}>
-                                                { for day.esercizi.iter().enumerate().map(|(idx, exercise)| {
-                                                    let on_select_exercise = on_select_exercise.clone();
-                                                    html! {
-                                                        <ExerciseCard
-                                                            exercise={exercise.clone()}
-                                                            saved_sets={(*saved_sets).clone()}
-                                                            is_selected={selected == idx}
-                                                            on_select={Callback::from(move |_: ()| on_select_exercise.emit(idx))}
-                                                        />
-                                                    }
-                                                }) }
-                                            </section>
-                                            <div class="workout-footer">
-                                                <button class={classes!(
-                                                    "footer-btn",
-                                                    "footer-btn--save",
-                                                    if all_done { Some("footer-btn--save--done") } else { None }
-                                                )}
-                                                    onclick={on_save_and_finish.clone()}>
-                                                    {"Salva e termina"}
-                                                </button>
-                                                <button class="footer-btn footer-btn--delete"
-                                                    onclick={on_delete_workout.clone()}>
-                                                    {"Cancella allenamento"}
-                                                </button>
-                                            </div>
-                                        </>
-                                    }
-                                } else {
-                                    html! { <p>{"Giorno non trovato."}</p> }
-                                } }
-                            </div>
-                        }
+                            }
                         } // close else (not resume dialog)
                     } else {
                         html! {
