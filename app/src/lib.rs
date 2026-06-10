@@ -200,6 +200,7 @@ struct RegLive {
     reps_inputs: HashMap<String, Vec<String>>,
     session_id: String,
     selected_exercise: usize,
+    viewing_history: bool,
 }
 
 #[function_component(App)]
@@ -246,6 +247,7 @@ fn app() -> Html {
         reps_inputs: (*reps_inputs).clone(),
         session_id: (*current_session_id).clone(),
         selected_exercise: *selected_exercise,
+        viewing_history: *viewing_history,
     };
 
     // ── Export / Import ──────────────────────────────────────────────────────
@@ -337,6 +339,7 @@ fn app() -> Html {
     // be copy-pasted across auto-resume, day change, calendar select, and
     // suggestion entry points.
     let apply_day_session: Rc<dyn Fn(usize, DaySession)> = {
+        let timer              = timer.clone();
         let day_index          = day_index.clone();
         let selected_exercise  = selected_exercise.clone();
         let saved_sets         = saved_sets.clone();
@@ -345,6 +348,10 @@ fn app() -> Html {
         let current_session_id = current_session_id.clone();
         let resume_candidates  = resume_candidates.clone();
         Rc::new(move |day_idx: usize, outcome: DaySession| {
+            // Switching day/session context abandons any running recovery:
+            // its at-zero save would otherwise target an exercise index in the
+            // NEW day (same bug class as the timer-target fix, one level up).
+            timer.stop();
             day_index.set(day_idx);
             match outcome {
                 DaySession::Fresh => {
@@ -685,6 +692,11 @@ fn app() -> Html {
             // Snapshot the live state once (current as of the last render).
             let (sets, wi_live, ri_live, sid_live, cur_selected) = {
                 let live = reg_live.borrow();
+                // Never auto-save while viewing a terminated session: the live
+                // session_id points at the HISTORY session and writing to it
+                // would corrupt it. (Belt-and-braces: entering history also
+                // stops the timer.)
+                if live.viewing_history { return; }
                 (live.saved_sets.clone(), live.weight_inputs.clone(),
                  live.reps_inputs.clone(), live.session_id.clone(),
                  live.selected_exercise)
@@ -929,6 +941,7 @@ fn app() -> Html {
     };
 
     let on_view_session = {
+        let timer              = timer.clone();
         let workout            = workout.clone();
         let day_index          = day_index.clone();
         let selected_exercise  = selected_exercise.clone();
@@ -939,6 +952,9 @@ fn app() -> Html {
         let viewing_history    = viewing_history.clone();
         let history_open       = history_open.clone();
         Callback::from(move |session: Session| {
+            // Entering history abandons any running recovery (its auto-save
+            // would write into the terminated session being viewed).
+            timer.stop();
             if let Some(w) = &*workout {
                 let day_idx = w.giorni.iter()
                     .position(|d| d.giorno == session.day)
@@ -993,6 +1009,7 @@ fn app() -> Html {
 
     // ── Calendar: select session from dot / CTA ──────────────────────────────
     let on_select_session_meta = {
+        let timer              = timer.clone();
         let workout            = workout.clone();
         let day_index          = day_index.clone();
         let selected_exercise  = selected_exercise.clone();
@@ -1009,6 +1026,7 @@ fn app() -> Html {
             let day_idx = data.giorni.iter().position(|d| d.giorno == meta.day).unwrap_or(0);
             if meta.done {
                 if let Some(session) = find_session_by_id(&meta.workout_id, &meta.id) {
+                    timer.stop(); // entering history view — abandon any recovery
                     let (wi, ri) = inputs_from_sets(&session.sets);
                     day_index.set(day_idx);
                     selected_exercise.set(session.active_exercise);
@@ -1042,13 +1060,45 @@ fn app() -> Html {
 
     // ── Wake Lock ────────────────────────────────────────────────────────────
     // Acquire when a workout is loaded, release when the user exits.
+    // The browser auto-releases the lock whenever the page goes hidden (screen
+    // off, app switch), so a visibilitychange listener re-acquires it on
+    // return to foreground — otherwise the lock is silently lost for the rest
+    // of the session after the first screen-off.
     {
         let slot: Rc<RefCell<Option<JsValue>>> = use_mut_ref(|| None);
         use_effect_with_deps(
             move |is_loaded: &bool| {
-                if *is_loaded { acquire_wake_lock(slot.clone()); }
-                else          { release_wake_lock(&slot); }
-                || ()
+                let mut vis_cb: Option<Closure<dyn Fn()>> = None;
+                if *is_loaded {
+                    acquire_wake_lock(slot.clone());
+                    if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+                        let slot2 = slot.clone();
+                        let cb = Closure::<dyn Fn()>::wrap(Box::new(move || {
+                            let visible = web_sys::window()
+                                .and_then(|w| w.document())
+                                .map(|d| !d.hidden())
+                                .unwrap_or(false);
+                            if visible { acquire_wake_lock(slot2.clone()); }
+                        }));
+                        let _ = doc.add_event_listener_with_callback(
+                            "visibilitychange",
+                            cb.as_ref().unchecked_ref(),
+                        );
+                        vis_cb = Some(cb);
+                    }
+                } else {
+                    release_wake_lock(&slot);
+                }
+                move || {
+                    if let Some(cb) = vis_cb {
+                        if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+                            let _ = doc.remove_event_listener_with_callback(
+                                "visibilitychange",
+                                cb.as_ref().unchecked_ref(),
+                            );
+                        }
+                    }
+                }
             },
             workout.is_some(),
         );
