@@ -266,9 +266,12 @@ fn app() -> Html {
     });
 
     let on_set_preferred = {
-        let up = user_preferred.clone();
+        let up    = user_preferred.clone();
+        let error = error.clone();
         Callback::from(move |file: Option<String>| {
-            save_user_preferred(file.as_deref());
+            if let Err(e) = save_user_preferred(file.as_deref()) {
+                error.set(Some(e));
+            }
             up.set(file);
         })
     };
@@ -399,6 +402,22 @@ fn app() -> Html {
         })
     };
 
+    // ── Prune old terminated sessions on mount ───────────────────────────────
+    // Bounds localStorage growth; only touches sessions done > ~24 months ago
+    // (the export backup remains the full archive).
+    {
+        let error = error.clone();
+        use_effect_with_deps(
+            move |_| {
+                if let Err(e) = prune_old_done_sessions() {
+                    error.set(Some(e));
+                }
+                || ()
+            },
+            (),
+        );
+    }
+
     // ── Auto-resume on mount ─────────────────────────────────────────────────
     // On startup, if the user has an open (unfinished) session, restore the
     // workout + day + sets from localStorage — no network request needed because
@@ -433,8 +452,11 @@ fn app() -> Html {
         Rc::new(move |text: String| {
             match serde_json::from_str::<Workout>(&text) {
                 Ok(data) => {
-                    upsert_schedule(&data);
+                    // The in-memory workout still opens fine; the banner is set
+                    // AFTER open_workout_fn because that clears prior errors.
+                    let save_err = upsert_schedule(&data).err();
                     open_workout_fn(data, 0);
+                    if let Some(e) = save_err { error.set(Some(e)); }
                 }
                 Err(e) => error.set(Some(format!("Errore JSON: {}", e))),
             }
@@ -558,6 +580,7 @@ fn app() -> Html {
         let reps_inputs        = reps_inputs.clone();
         let saved_sets         = saved_sets.clone();
         let current_session_id = current_session_id.clone();
+        let error              = error.clone();
         Callback::from(move |set_index: usize| {
             if let Some(workout) = &*workout {
                 if let Some(day) = workout.giorni.get(*day_index) {
@@ -580,6 +603,7 @@ fn app() -> Html {
                             (set_index + 1) as u32, peso, reps, &weight_str,
                             (*saved_sets).clone(), &weight_inputs, &current_session_id,
                         );
+                        if let Some(e) = reg.storage_error { error.set(Some(e)); }
                         if reg.session_created { current_session_id.set(reg.session_id); }
                         if reg.next_active_exercise != current_idx {
                             selected_exercise.set(reg.next_active_exercise);
@@ -632,6 +656,7 @@ fn app() -> Html {
         let cardio_elapsed     = cardio_elapsed.clone();
         let cardio_running     = cardio_running.clone();
         let cardio_handle      = cardio_handle.clone();
+        let error               = error.clone();
         Callback::from(move |_: ()| {
             cardio_handle.borrow_mut().take();
             cardio_running.set(false);
@@ -655,13 +680,23 @@ fn app() -> Html {
                         let sid = {
                             let cur = (*current_session_id).clone();
                             if cur.is_empty() {
-                                let new_sid = create_session_for_day(workout, *day_index);
-                                current_session_id.set(new_sid.clone());
-                                new_sid
+                                match create_session_for_day(workout, *day_index) {
+                                    Ok(new_sid) => {
+                                        current_session_id.set(new_sid.clone());
+                                        new_sid
+                                    }
+                                    Err(e) => { error.set(Some(e)); String::new() }
+                                }
                             } else { cur }
                         };
-                        let total = total_day_sets(workout, &day.giorno);
-                        update_session_sets(&workout.id, &sid, &list, next_active, total);
+                        if !sid.is_empty() {
+                            let total = total_day_sets(workout, &day.giorno);
+                            if let Err(e) =
+                                update_session_sets(&workout.id, &sid, &list, next_active, total)
+                            {
+                                error.set(Some(e));
+                            }
+                        }
                         saved_sets.set(list);
                     }
                 }
@@ -684,6 +719,7 @@ fn app() -> Html {
         let weight_inputs      = weight_inputs.clone();
         let current_session_id = current_session_id.clone();
         let reg_live           = reg_live.clone();
+        let error              = error.clone();
         Rc::new(move |ex_idx: usize| {
             let Some(workout) = &*workout else { return };
             let Some(day) = workout.giorni.get(*day_index) else { return };
@@ -723,6 +759,7 @@ fn app() -> Html {
                 next_set, peso, reps, &weight_str,
                 sets, &wi_live, &sid_live,
             );
+            if let Some(e) = reg.storage_error { error.set(Some(e)); }
             if reg.session_created { current_session_id.set(reg.session_id); }
             // Only advance the view if the user is still on the exercise saved.
             if cur_selected == ex_idx && reg.next_active_exercise != ex_idx {
@@ -793,6 +830,7 @@ fn app() -> Html {
         let weight_inputs      = weight_inputs.clone();
         let reps_inputs        = reps_inputs.clone();
         let resume_candidates  = resume_candidates.clone();
+        let error              = error.clone();
         Callback::from(move |meta: SessionMeta| {
             if let Some(w) = &*workout {
                 // Delete other open sessions for this same day (keep only the chosen one)
@@ -800,7 +838,11 @@ fn app() -> Html {
                     .into_iter()
                     .filter(|m| m.id != meta.id)
                     .collect();
-                for m in others { delete_session(&w.id, &m.id); }
+                for m in others {
+                    if let Err(e) = delete_session(&w.id, &m.id) {
+                        error.set(Some(e));
+                    }
+                }
 
                 let (sid, sets, active_ex) = find_open_session(&w.id, &meta.day)
                     .unwrap_or((String::new(), vec![], 0));
@@ -829,12 +871,15 @@ fn app() -> Html {
         let weight_inputs      = weight_inputs.clone();
         let reps_inputs        = reps_inputs.clone();
         let resume_candidates  = resume_candidates.clone();
+        let error              = error.clone();
         Callback::from(move |_| {
             if let Some(w) = &*workout {
                 // Delete only the open sessions for the day being disambiguated
                 if let Some(candidate) = (*resume_candidates).first() {
                     let day_label = candidate.day.clone();
-                    delete_sessions_for_day(&w.id, &day_label);
+                    if let Err(e) = delete_sessions_for_day(&w.id, &day_label) {
+                        error.set(Some(e));
+                    }
                     let day_idx = w.giorni.iter()
                         .position(|d| d.giorno == day_label)
                         .unwrap_or(0);
@@ -899,10 +944,18 @@ fn app() -> Html {
         let workout            = workout.clone();
         let current_session_id = current_session_id.clone();
         let reset              = reset_workout_state.clone();
+        let error              = error.clone();
         Callback::from(move |_| {
             if let Some(w) = &*workout {
                 let sid = (*current_session_id).clone();
-                if !sid.is_empty() { terminate_session(&w.id, &sid); }
+                if !sid.is_empty() {
+                    if let Err(e) = terminate_session(&w.id, &sid) {
+                        // Don't reset: leaving the session open lets the user
+                        // export a backup and retry instead of losing it.
+                        error.set(Some(e));
+                        return;
+                    }
+                }
             }
             reset();
         })
@@ -913,10 +966,16 @@ fn app() -> Html {
         let workout            = workout.clone();
         let current_session_id = current_session_id.clone();
         let reset              = reset_workout_state.clone();
+        let error              = error.clone();
         Callback::from(move |_| {
             if let Some(w) = &*workout {
                 let sid = (*current_session_id).clone();
-                if !sid.is_empty() { delete_session(&w.id, &sid); }
+                if !sid.is_empty() {
+                    if let Err(e) = delete_session(&w.id, &sid) {
+                        error.set(Some(e)); // reset() would clear the banner
+                        return;
+                    }
+                }
             }
             reset();
         })
