@@ -1,7 +1,7 @@
 use gloo_storage::{LocalStorage, Storage};
 use js_sys::Date as JsDate;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 // ── Core workout data ────────────────────────────────────────────────────────
 
@@ -97,16 +97,31 @@ fn new_id() -> String {
     (JsDate::now() as u64).to_string()
 }
 
+// ── Storage write helper ─────────────────────────────────────────────────────
+
+/// Write to localStorage, mapping failures to a user-facing message.
+/// Writes can fail when the browser storage quota is full; surfacing it
+/// matters because the in-memory state still looks saved while the data
+/// would be lost on reload.
+fn set_storage<T: Serialize + ?Sized>(key: &str, value: &T) -> Result<(), String> {
+    LocalStorage::set(key, value).map_err(|e| {
+        format!(
+            "Salvataggio non riuscito ({}): {}. Esporta un backup e libera spazio sul dispositivo.",
+            key, e
+        )
+    })
+}
+
 // ── User preferred scheda ────────────────────────────────────────────────────
 
 pub fn load_user_preferred() -> Option<String> {
     LocalStorage::get::<String>("user_preferred_scheda").ok()
 }
 
-pub fn save_user_preferred(file: Option<&str>) {
+pub fn save_user_preferred(file: Option<&str>) -> Result<(), String> {
     match file {
-        Some(f) => { let _ = LocalStorage::set("user_preferred_scheda", f); }
-        None    => { LocalStorage::delete("user_preferred_scheda"); }
+        Some(f) => set_storage("user_preferred_scheda", f),
+        None    => { LocalStorage::delete("user_preferred_scheda"); Ok(()) }
     }
 }
 
@@ -116,18 +131,18 @@ pub fn load_schedules() -> Vec<Workout> {
     LocalStorage::get("schedules").unwrap_or_default()
 }
 
-fn save_schedules(schedules: &[Workout]) {
-    let _ = LocalStorage::set("schedules", schedules);
+fn save_schedules(schedules: &[Workout]) -> Result<(), String> {
+    set_storage("schedules", schedules)
 }
 
 /// Replace an existing schedule (matched by id) with the fresh version, or insert if new.
 /// Called every time a scheda is loaded — ensures localStorage always holds
 /// the latest structure (new fields like `video`) without touching session data.
-pub fn upsert_schedule(workout: &Workout) {
+pub fn upsert_schedule(workout: &Workout) -> Result<(), String> {
     let mut schedules = load_schedules();
     let id = workout.id.clone();
     upsert_by(&mut schedules, workout.clone(), |s| s.id == id);
-    save_schedules(&schedules);
+    save_schedules(&schedules)
 }
 
 // ── Sessions storage ─────────────────────────────────────────────────────────
@@ -140,8 +155,8 @@ pub fn load_sessions(workout_id: &str) -> Vec<Session> {
     LocalStorage::get(sessions_key(workout_id)).unwrap_or_default()
 }
 
-fn save_sessions(workout_id: &str, sessions: &[Session]) {
-    let _ = LocalStorage::set(sessions_key(workout_id), sessions);
+fn save_sessions(workout_id: &str, sessions: &[Session]) -> Result<(), String> {
+    set_storage(&sessions_key(workout_id), sessions)
 }
 
 // ── Sessions index ───────────────────────────────────────────────────────────
@@ -150,15 +165,15 @@ pub fn load_sessions_index() -> Vec<SessionMeta> {
     LocalStorage::get("sessions_index").unwrap_or_default()
 }
 
-fn save_sessions_index(index: &[SessionMeta]) {
-    let _ = LocalStorage::set("sessions_index", index);
+fn save_sessions_index(index: &[SessionMeta]) -> Result<(), String> {
+    set_storage("sessions_index", index)
 }
 
-fn upsert_session_meta(meta: SessionMeta) {
+fn upsert_session_meta(meta: SessionMeta) -> Result<(), String> {
     let mut index = load_sessions_index();
     let id = meta.id.clone(); // capture before meta is moved
     upsert_by(&mut index, meta, |m| m.id == id);
-    save_sessions_index(&index);
+    save_sessions_index(&index)
 }
 
 // ── Session helpers ───────────────────────────────────────────────────────────
@@ -225,14 +240,16 @@ pub fn resolve_day_session(workout_id: &str, day_label: &str) -> DaySession {
 
 /// Create and persist a brand-new session for a day. Called lazily on first set.
 /// Idempotent: if an open session already exists for this day, returns its id.
-pub fn create_session_for_day(workout: &Workout, day_idx: usize) -> String {
+/// On a failed write the session does NOT exist in storage — callers should
+/// surface the error and avoid storing the id, so the next save retries.
+pub fn create_session_for_day(workout: &Workout, day_idx: usize) -> Result<String, String> {
     let day = match workout.giorni.get(day_idx) {
         Some(d) => d,
-        None => return new_id(),
+        None => return Ok(new_id()),
     };
     // Safety net: don't create a second session if one already exists
     if let Some((existing_id, _, _)) = find_open_session(&workout.id, &day.giorno) {
-        return existing_id;
+        return Ok(existing_id);
     }
     let id  = new_id();
     let now = now_iso();
@@ -247,6 +264,11 @@ pub fn create_session_for_day(workout: &Workout, day_idx: usize) -> String {
         active_exercise: 0,
         sets: vec![],
     };
+    // Write the full session first, the index after: a partial failure leaves
+    // at worst an unindexed session, never a ghost index entry.
+    let mut sessions = load_sessions(&workout.id);
+    sessions.push(session);
+    save_sessions(&workout.id, &sessions)?;
     upsert_session_meta(SessionMeta {
         id: id.clone(),
         workout_id: workout.id.clone(),
@@ -256,24 +278,22 @@ pub fn create_session_for_day(workout: &Workout, day_idx: usize) -> String {
         updated: now,
         done: false,
         completion_pct: 0.0,
-    });
-    let mut sessions = load_sessions(&workout.id);
-    sessions.push(session);
-    save_sessions(&workout.id, &sessions);
-    id
+    })?;
+    Ok(id)
 }
 
 /// Delete all non-terminated sessions for a specific workout+day.
-pub fn delete_sessions_for_day(workout_id: &str, day_label: &str) {
+pub fn delete_sessions_for_day(workout_id: &str, day_label: &str) -> Result<(), String> {
     let mut sessions = load_sessions(workout_id);
     let before = sessions.len();
     sessions.retain(|s| !(s.day == day_label && !s.done));
     if sessions.len() != before {
-        save_sessions(workout_id, &sessions);
+        save_sessions(workout_id, &sessions)?;
         let mut index = load_sessions_index();
         index.retain(|m| !(m.workout_id == workout_id && m.day == day_label && !m.done));
-        save_sessions_index(&index);
+        save_sessions_index(&index)?;
     }
+    Ok(())
 }
 
 /// Persist updated sets (and active_exercise) for an existing session,
@@ -284,14 +304,14 @@ pub fn update_session_sets(
     sets: &[CompletedSet],
     active_exercise: usize,
     total_expected: u32,
-) {
+) -> Result<(), String> {
     let mut sessions = load_sessions(workout_id);
     if let Some(s) = sessions.iter_mut().find(|s| s.id == session_id) {
         s.sets = sets.to_vec();
         s.active_exercise = active_exercise;
         s.updated = now_iso();
         let pct = s.completion_pct(total_expected);
-        upsert_session_meta(SessionMeta {
+        let meta = SessionMeta {
             id: session_id.to_string(),
             workout_id: workout_id.to_string(),
             workout_nome: s.workout_nome.clone(),
@@ -300,36 +320,77 @@ pub fn update_session_sets(
             updated: s.updated.clone(),
             done: s.done,
             completion_pct: pct,
-        });
-        save_sessions(workout_id, &sessions);
+        };
+        save_sessions(workout_id, &sessions)?;
+        upsert_session_meta(meta)?;
     }
+    Ok(())
 }
 
 /// Mark a single session as terminated (done).
-pub fn terminate_session(workout_id: &str, session_id: &str) {
+pub fn terminate_session(workout_id: &str, session_id: &str) -> Result<(), String> {
     let mut sessions = load_sessions(workout_id);
     let now = now_iso();
     if let Some(s) = sessions.iter_mut().find(|s| s.id == session_id) {
         s.done = true;
         s.updated = now.clone();
-        save_sessions(workout_id, &sessions);
+        save_sessions(workout_id, &sessions)?;
     }
     let mut index = load_sessions_index();
     if let Some(m) = index.iter_mut().find(|m| m.id == session_id) {
         m.done = true;
         m.updated = now.clone();
     }
-    save_sessions_index(&index);
+    save_sessions_index(&index)
 }
 
 /// Remove a session entirely from storage.
-pub fn delete_session(workout_id: &str, session_id: &str) {
+pub fn delete_session(workout_id: &str, session_id: &str) -> Result<(), String> {
     let mut sessions = load_sessions(workout_id);
     sessions.retain(|s| s.id != session_id);
-    save_sessions(workout_id, &sessions);
+    save_sessions(workout_id, &sessions)?;
     let mut index = load_sessions_index();
     index.retain(|m| m.id != session_id);
-    save_sessions_index(&index);
+    save_sessions_index(&index)
+}
+
+/// Terminated sessions older than this get pruned at startup (~24 months).
+/// Generous on purpose: the weight chart keeps two years of history and the
+/// export/backup remains the full archive.
+const PRUNE_AFTER_DAYS: f64 = 730.0;
+
+/// Delete terminated sessions whose last update is older than
+/// [`PRUNE_AFTER_DAYS`], from both the per-workout stores and the index.
+/// Bounds localStorage growth (writes fail silently-looking at quota).
+/// Returns how many sessions were removed.
+pub fn prune_old_done_sessions() -> Result<u32, String> {
+    let cutoff_ms = JsDate::now() - PRUNE_AFTER_DAYS * 86_400_000.0;
+    let cutoff = JsDate::new(&wasm_bindgen::JsValue::from_f64(cutoff_ms))
+        .to_iso_string()
+        .as_string()
+        .unwrap_or_default();
+    if cutoff.is_empty() { return Ok(0); }
+
+    let mut index = load_sessions_index();
+    // ISO-8601 UTC strings compare correctly as plain strings.
+    let stale_ids: HashSet<String> = index.iter()
+        .filter(|m| m.done && m.updated.as_str() < cutoff.as_str())
+        .map(|m| m.id.clone())
+        .collect();
+    if stale_ids.is_empty() { return Ok(0); }
+
+    let workout_ids: HashSet<String> = index.iter()
+        .filter(|m| stale_ids.contains(&m.id))
+        .map(|m| m.workout_id.clone())
+        .collect();
+    for wid in &workout_ids {
+        let mut sessions = load_sessions(wid);
+        sessions.retain(|s| !stale_ids.contains(&s.id));
+        save_sessions(wid, &sessions)?;
+    }
+    index.retain(|m| !stale_ids.contains(&m.id));
+    save_sessions_index(&index)?;
+    Ok(stale_ids.len() as u32)
 }
 
 /// Insert or replace an item in a Vec. Uses `position` to avoid double-move.
@@ -438,6 +499,10 @@ pub struct SetRegistration {
     pub session_created: bool,
     /// When `Some((idx, value))`, caller should prefill `weight_inputs` at `idx`.
     pub prefill_weight: Option<(usize, String)>,
+    /// When `Some(msg)`, persisting to localStorage failed (quota?) — the
+    /// returned sets are still good for the UI, but the caller must surface
+    /// the error: the data will NOT survive a reload.
+    pub storage_error: Option<String>,
 }
 
 /// Register `set_number` (1-based) of `exercise` with the given peso/reps and
@@ -475,14 +540,25 @@ pub fn register_set(
         current_exercise_idx
     };
 
-    let (session_id, session_created) = if current_session_id.is_empty() {
-        (create_session_for_day(workout, day_index), true)
+    // On a failed session creation keep session_id empty so the caller doesn't
+    // store a bogus id and the next save retries the creation.
+    let (session_id, session_created, mut storage_error) = if current_session_id.is_empty() {
+        match create_session_for_day(workout, day_index) {
+            Ok(id) => (id, true, None),
+            Err(e) => (String::new(), false, Some(e)),
+        }
     } else {
-        (current_session_id.to_string(), false)
+        (current_session_id.to_string(), false, None)
     };
 
-    let total = total_day_sets(workout, &day.giorno);
-    update_session_sets(&workout.id, &session_id, &list, next_active_exercise, total);
+    if !session_id.is_empty() {
+        let total = total_day_sets(workout, &day.giorno);
+        if let Err(e) =
+            update_session_sets(&workout.id, &session_id, &list, next_active_exercise, total)
+        {
+            storage_error.get_or_insert(e);
+        }
+    }
 
     // Propagate the weight to the next set's input slot, but only if that slot is
     // still empty (don't overwrite a value the user already typed ahead).
@@ -506,6 +582,7 @@ pub fn register_set(
         session_id,
         session_created,
         prefill_weight,
+        storage_error,
     }
 }
 
@@ -620,10 +697,10 @@ pub fn export_all_data() -> String {
 pub fn import_all_data(json: &str) -> Result<(), String> {
     let data: ExportData = serde_json::from_str(json)
         .map_err(|e| format!("Formato non riconosciuto: {}", e))?;
-    save_schedules(&data.schedules);
-    save_sessions_index(&data.sessions_index);
+    save_schedules(&data.schedules)?;
+    save_sessions_index(&data.sessions_index)?;
     for (workout_id, s) in &data.sessions {
-        save_sessions(workout_id, s);
+        save_sessions(workout_id, s)?;
     }
     Ok(())
 }
